@@ -2,8 +2,6 @@
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/intel/network-operator/badge)](https://scorecard.dev/viewer/?uri=github.com/intel/network-operator)
 
-CAUTION: This is an beta / non-production software, do not use on production clusters.
-
 Network Operator allows automatic configuring and easier use of RDMA NICs with Intel AI accelerators.
 
 ## Description
