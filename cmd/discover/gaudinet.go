@@ -17,10 +17,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"k8s.io/klog/v2"
 )
@@ -37,10 +37,8 @@ type GaudiNetEntry struct {
 }
 
 var (
-	gaudinetFileName string = "gaudinet.json"
-	gaudinetFilePath string = filepath.Join("/etc", gaudinetFileName)
-
-	JsonMarshal func(v any) ([]byte, error) = json.Marshal
+	JsonMarshal func(v any) ([]byte, error)                                      = json.Marshal
+	JsonIndent  func(dst *bytes.Buffer, src []byte, prefix, indent string) error = json.Indent
 )
 
 func GenerateGaudiNet(networkConfigs map[string]*networkConfiguration) ([]byte, error) {
@@ -67,12 +65,18 @@ func GenerateGaudiNet(networkConfigs map[string]*networkConfiguration) ([]byte, 
 		gaudinet.Config = append(gaudinet.Config, net)
 	}
 
-	gaudinetContents, err := JsonMarshal(gaudinet)
+	gaudinetJSON, err := JsonMarshal(gaudinet)
 	if err != nil {
-		return nil, fmt.Errorf("Could not marshal '%s' json", gaudinetFilePath)
+		return nil, fmt.Errorf("Could not marshal json: %v", err)
+	}
+	gaudinetJSON = append(gaudinetJSON, '\n')
+
+	var gaudinetContents bytes.Buffer
+	if err := JsonIndent(&gaudinetContents, gaudinetJSON, "", "  "); err != nil {
+		return nil, err
 	}
 
-	return gaudinetContents, nil
+	return gaudinetContents.Bytes(), nil
 }
 
 func WriteGaudiNet(filename string, networkConfigs map[string]*networkConfiguration) error {

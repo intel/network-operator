@@ -39,9 +39,16 @@ func fakenetworkconfigs() (map[string]*networkConfiguration, string) {
 		localAddr:  &localAddr,
 		peerHWAddr: &net.HardwareAddr{0x06, 0x05, 0x04, 0x03, 0x02, 0x01},
 	}
-	expectedoutput := "{\"NIC_NET_CONFIG\":[{\"NIC_MAC\":\"01:02:03:04:05:06\"," +
-		"\"NIC_IP\":\"10.120.0.1\",\"SUBNET_MASK\":\"255.255.255.252\"," +
-		"\"GATEWAY_MAC\":\"06:05:04:03:02:01\"}]}"
+	expectedoutput := "{\n" +
+		"  \"NIC_NET_CONFIG\": [\n" +
+		"    {\n" +
+		"      \"NIC_MAC\": \"01:02:03:04:05:06\",\n" +
+		"      \"NIC_IP\": \"10.120.0.1\",\n" +
+		"      \"SUBNET_MASK\": \"255.255.255.252\",\n" +
+		"      \"GATEWAY_MAC\": \"06:05:04:03:02:01\"\n" +
+		"    }\n" +
+		"  ]\n" +
+		"}\n"
 
 	nwconfigs := make(map[string]*networkConfiguration)
 	nwconfigs["eth1234"] = &networkconfig
@@ -61,7 +68,7 @@ func TestGenerateGaudiNet(t *testing.T) {
 func TestGenerateGaudiNetMissingLocalAddr(t *testing.T) {
 	nwconfigs, _ := fakenetworkconfigs()
 
-	emptyOutput := "{\"NIC_NET_CONFIG\":[]}"
+	emptyOutput := "{\n  \"NIC_NET_CONFIG\": []\n}\n"
 
 	nwconfigs["eth1234"].localAddr = nil
 
@@ -143,6 +150,6 @@ func TestGaudiNetMarshalErrors(t *testing.T) {
 
 	err = WriteGaudiNet(file, nwconfigs)
 	if err == nil {
-		t.Error("Write succeeded while it should have")
+		t.Error("Write succeeded while it should not have")
 	}
 }
