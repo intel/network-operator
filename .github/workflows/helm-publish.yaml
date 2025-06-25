@@ -1,0 +1,35 @@
+name: Package and upload helm
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  RELEASE_REGISTRY: ghcr.io/intel/network-operator
+
+jobs:
+  push-helm-charts:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - uses: azure/setup-helm@v4.3.0
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push packaged Helm charts
+        run: make helm-push-chart

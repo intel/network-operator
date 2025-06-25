@@ -1,0 +1,30 @@
+logLevel: 2
+
+operator:
+  image:
+    repository: intel/intel-network-operator
+    tag: 1.0.0
+    imagePullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+
+nfd:
+  install: false
+  gaudiRule: true
+
+config:
+  gaudi:
+    enabled: false
+    mode: "L3"
+    mtu: 8000
+    image:
+      repository: intel/intel-network-linkdiscovery
+      tag: "1.0.0"
+      imagePullPolicy: IfNotPresent
+    nodeSelector:
+      intel.feature.node.kubernetes.io/gaudi-ready: "true"

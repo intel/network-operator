@@ -1,0 +1,4 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Friendly note about CRDs. Make sure to manually update CRDs if
+they have changed. CRDs are not updated with helm by default.

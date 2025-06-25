@@ -1,0 +1,24 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+  name: intel-network-serving-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  dnsNames:
+  - intel-network-webhook-service.{{ .Release.Namespace }}.svc
+  - intel-network-webhook-service.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: intel-network-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+  name: intel-network-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
+spec:
+  selfSigned: {}
+---

@@ -1,0 +1,27 @@
+{{- if .Values.nfd.gaudiRule }}
+apiVersion: nfd.k8s-sigs.io/v1alpha1
+kind: NodeFeatureRule
+metadata:
+  name: gaudi-device-rule
+spec:
+  rules:
+    - name: "intel.gaudi"
+      labels:
+        "intel.feature.node.kubernetes.io/gaudi": "true"
+      matchFeatures:
+        - feature: pci.device
+          matchExpressions:
+            vendor: {op: In, value: ["1da3"]}
+            device: {op: In, value: ["1020", "1030", "1060"]}
+    - name: "intel.gaudi-ready"
+      labels:
+        "intel.feature.node.kubernetes.io/gaudi-ready": "true"
+      matchFeatures:
+        - feature: pci.device
+          matchExpressions:
+            vendor: {op: In, value: ["1da3"]}
+            device: {op: In, value: ["1020", "1030", "1060"]}
+        - feature: kernel.loadedmodule
+          matchExpressions:
+            habanalabs: {op: Exists}
+{{- end }}

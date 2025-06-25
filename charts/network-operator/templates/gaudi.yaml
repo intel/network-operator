@@ -1,0 +1,23 @@
+
+{{- if .Values.config.gaudi.enabled }}
+{{- $valid := list "L2" "L3" }}
+{{- if not (has .Values.config.gaudi.mode $valid) }}
+{{- fail "Invalid layer mode" }}
+{{- end }}
+{{- if or (lt (int .Values.config.gaudi.mtu) 1500) (gt (int .Values.config.gaudi.mtu) 9000) }}
+{{- fail "MTU must be between 1500 and 9000" }}
+{{- end }}
+apiVersion: intel.com/v1alpha1
+kind: NetworkClusterPolicy
+metadata:
+  name: netconf-gaudi-scale-out
+spec:
+  configurationType: gaudi-so
+  gaudiScaleOut:
+    layer: {{ .Values.config.gaudi.mode }}
+    image: "{{ .Values.config.gaudi.image.repository }}:{{ .Values.config.gaudi.image.tag }}"
+    pullPolicy: {{ .Values.config.gaudi.image.imagePullPolicy }}
+    mtu: {{ .Values.config.gaudi.mtu }}
+  logLevel: {{ .Values.logLevel }}
+  nodeSelector: {{- .Values.config.gaudi.nodeSelector | toYaml | nindent 4 }}
+{{- end }}

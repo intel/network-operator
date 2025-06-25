@@ -1,0 +1,20 @@
+apiVersion: v2
+name: intel-network-operator
+description: A Helm chart for Intel Network Operator for Kubernetes
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: node-feature-discovery
+    alias: nfd
+    version: "0.17.3"
+    condition: nfd.install
+    repository: https://kubernetes-sigs.github.io/node-feature-discovery/charts
+
+annotations:
+  org.opencontainers.image.url: "https://github.com/intel/network-operator"
+  org.opencontainers.image.source: "https://github.com/intel/network-operator"
+  org.opencontainers.image.version: "1.0.0"
+  org.opencontainers.image.title: "Intel Network Operator"
+  org.opencontainers.image.description: "This chart installs the Intel Network Operator for Kubernetes."

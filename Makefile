@@ -333,3 +333,19 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+# HELM functionality
+.PHONY: helm-update-dependencies helm-package-chart helm-push-chart
+
+helm-update-dependencies:
+	@helm dependency update charts/network-operator
+
+helm-package-chart: helm-update-dependencies
+	chart_version=$$(yq .version charts/network-operator/Chart.yaml); \
+	release_version=$$(yq .appVersion charts/network-operator/Chart.yaml); \
+	echo "Packaging 'network-operator' chart with version $${chart_version} and application version $${release_version}"; \
+	rm -rf .charts; \
+	helm package charts/network-operator --version $${chart_version} --app-version $${release_version} --destination .charts
+
+helm-push-chart: helm-package-chart
+	@helm push .charts/* oci://${RELEASE_REGISTRY}
