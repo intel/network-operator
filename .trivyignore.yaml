@@ -52,6 +52,17 @@ misconfigurations:
   - id: AVD-DS-0002
     statement: "linkdiscovery's requires root"
 
+  - id: AVD-KSV-0125
+    statement: "docker.io is a trusted registry for us"
+    paths:
+      - operator.yaml
+      - discovery.yaml
+
+  - id: AVD-KSV-0118
+    statement: "container is scheduled to a namespace selected by the user. Not to default namespace."
+    paths:
+      - discovery.yaml
+
   # No need to restrict registries yet
   - id: AVD-KSV-0032
   - id: AVD-KSV-0033
