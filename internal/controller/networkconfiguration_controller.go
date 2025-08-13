@@ -64,6 +64,9 @@ const (
 
 	gaudinetPathHost      = "/etc/habanalabs/gaudinet.json"
 	gaudinetPathContainer = "/host" + gaudinetPathHost
+
+	lldpadContainer = "lldpad"
+	lldpadVolume    = "lldpad"
 )
 
 func addHostVolume(ds *apps.DaemonSet, volumeType v1.HostPathType, volumeName, hostPath, containerPath string) {
@@ -161,6 +164,23 @@ func (r *NetworkClusterPolicyReconciler) createOpenShiftCollateral(ctx context.C
 	log.Info("Role binding created", "name", rb.Name)
 }
 
+func removeLLDPAD(ds *apps.DaemonSet) {
+	spec := &ds.Spec.Template.Spec
+
+	for idx, c := range spec.Containers {
+		if c.Name == lldpadContainer {
+			spec.Containers = append(spec.Containers[:idx], spec.Containers[idx+1:]...)
+			break
+		}
+	}
+
+	for idx, v := range ds.Spec.Template.Spec.Volumes {
+		if v.Name == lldpadVolume {
+			spec.Volumes = append(spec.Volumes[:idx], spec.Volumes[idx+1:]...)
+		}
+	}
+}
+
 func updateGaudiScaleOutDaemonSet(ds *apps.DaemonSet, netconf *networkv1alpha1.NetworkClusterPolicy, namespace string) {
 	ds.Name = netconf.Name
 	ds.ObjectMeta.Namespace = namespace
@@ -200,7 +220,22 @@ func updateGaudiScaleOutDaemonSet(ds *apps.DaemonSet, netconf *networkv1alpha1.N
 		addHostVolume(ds, v1.HostPathDirectoryOrCreate, "gaudinetpath", filepath.Dir(gaudinetPathHost), filepath.Dir(gaudinetPathContainer))
 	}
 
+	if netconf.Spec.GaudiScaleOut.PFCPriorities != "" {
+		pfcEnabled := ""
+		switch netconf.Spec.GaudiScaleOut.PFCPriorities {
+		case "00000000":
+			pfcEnabled = "none"
+		case "11110000":
+			pfcEnabled = "0,1,2,3"
+		}
+		args = append(args, fmt.Sprintf("--pfc=%s", pfcEnabled))
+	}
+
 	ds.Spec.Template.Spec.Containers[0].Args = args
+
+	if !netconf.Spec.GaudiScaleOut.EnableLLDPAD {
+		removeLLDPAD(ds)
+	}
 }
 
 func (r *NetworkClusterPolicyReconciler) createGaudiScaleOutDaemonset(netconf client.Object, ctx context.Context, log logr.Logger) (ctrl.Result, error) {

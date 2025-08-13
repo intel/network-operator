@@ -63,6 +63,17 @@ type GaudiScaleOutSpec struct {
 	// +kubebuilder:validation:Minimum=1500
 	// +kubebuilder:validation:Maximum=9000
 	MTU int `json:"mtu,omitempty"`
+
+	// Enable LLDP for Priority Flow Control in a dedicated container
+	// Keep this value as false if lldpad LLDP daemon is already present and
+	// running on the host
+	EnableLLDPAD bool `json:"enableLLDPAD,omitempty"`
+
+	// Bitmask of Priority Flow Control priorities to enable
+	// Requires lldpad on the host, or enabling the above EnableLLDPAD boolean
+	// Currently accepted values are 00000000 or 11110000
+	// +kubebuilder:validation:Enum="00000000";"11110000"
+	PFCPriorities string `json:"pfcPriorities,omitempty"`
 }
 
 // NetworkClusterPolicyStatus defines the observed state of NetworkClusterPolicy

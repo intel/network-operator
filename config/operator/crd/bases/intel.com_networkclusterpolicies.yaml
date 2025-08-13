@@ -56,6 +56,12 @@ spec:
                       Disable Gaudi scale-out interfaces in NetworkManager. For nodes where NetworkManager tries
                       to configure the Gaudi interfaces, prevent it from doing so.
                     type: boolean
+                  enableLLDPAD:
+                    description: |-
+                      Enable LLDP for Priority Flow Control in a dedicated container
+                      Keep this value as false if lldpad LLDP daemon is already present and
+                      running on the host
+                    type: boolean
                   image:
                     description: Container image to handle interface configurations
                       on the worker nodes.
@@ -72,6 +78,15 @@ spec:
                     maximum: 9000
                     minimum: 1500
                     type: integer
+                  pfcPriorities:
+                    description: |-
+                      Bitmask of Priority Flow Control priorities to enable
+                      Requires lldpad on the host, or enabling the above EnableLLDPAD boolean
+                      Currently accepted values are 00000000 or 11110000
+                    enum:
+                    - "00000000"
+                    - "11110000"
+                    type: string
                   pullPolicy:
                     description: Normal image pull policy used in the resulting daemonset.
                     enum:

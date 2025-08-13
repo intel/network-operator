@@ -73,9 +73,11 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 				Spec: networkv1alpha1.NetworkClusterPolicySpec{
 					ConfigurationType: "gaudi-so",
 					GaudiScaleOut: networkv1alpha1.GaudiScaleOutSpec{
-						Layer: "L3",
-						Image: "intel/my-linkdiscovery:latest",
-						MTU:   8000,
+						Layer:         "L3",
+						Image:         "intel/my-linkdiscovery:latest",
+						MTU:           8000,
+						EnableLLDPAD:  true,
+						PFCPriorities: "11110000",
 					},
 					NodeSelector: map[string]string{
 						"foo": "bar",
@@ -109,21 +111,27 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 				g.Expect(ds.Spec.Template.Spec.ServiceAccountName).To(BeEquivalentTo(resourceName + "-sa"))
 				g.Expect(ds.Spec.Template.Spec.Containers).To(HaveLen(2))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Image).To(BeEquivalentTo("intel/my-linkdiscovery:latest"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(6))
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(7))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[0]).To(BeEquivalentTo("--configure=true"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[1]).To(BeEquivalentTo("--keep-running"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[2]).To(BeEquivalentTo("--mode=L3"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[3]).To(BeEquivalentTo("--mtu=8000"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[4]).To(BeEquivalentTo("--wait=90s"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[5]).To(BeEquivalentTo("--gaudinet=/host/etc/habanalabs/gaudinet.json"))
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[6]).To(BeEquivalentTo("--pfc=0,1,2,3"))
 				g.Expect(ds.Spec.Template.Spec.Containers[1].Args).To(HaveLen(0))
 
-				g.Expect(ds.Spec.Template.Spec.Volumes).To(HaveLen(2))
+				g.Expect(ds.Spec.Template.Spec.Volumes).To(HaveLen(3))
 				g.Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(BeEquivalentTo("nfd-features"))
-				g.Expect(ds.Spec.Template.Spec.Volumes[1].Name).To(BeEquivalentTo("gaudinetpath"))
+				g.Expect(ds.Spec.Template.Spec.Volumes[1].Name).To(BeEquivalentTo("lldpad"))
+				g.Expect(ds.Spec.Template.Spec.Volumes[2].Name).To(BeEquivalentTo("gaudinetpath"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(2))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts[0].Name).To(BeEquivalentTo("nfd-features"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts[1].Name).To(BeEquivalentTo("gaudinetpath"))
+
+				g.Expect(ds.Spec.Template.Spec.Containers[1].VolumeMounts).To(HaveLen(2))
+				g.Expect(ds.Spec.Template.Spec.Containers[1].VolumeMounts[0].Name).To(BeEquivalentTo("lldpad"))
+				g.Expect(ds.Spec.Template.Spec.Containers[1].VolumeMounts[1].Name).To(BeEquivalentTo("lldpad"))
 
 				// Check for service account and role binding
 				g.Expect(k8sClient.Get(ctx, serviceAccountTypeNamespacedName, &sa)).To(Succeed())
@@ -137,6 +145,7 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
 
 			resource.Spec.GaudiScaleOut.Layer = "L2"
+			resource.Spec.GaudiScaleOut.PFCPriorities = ""
 
 			Expect(k8sClient.Update(ctx, resource)).To(Succeed())
 
@@ -155,20 +164,24 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 			// Test NetworkManager disabling
 			resource.Spec.GaudiScaleOut.Layer = "L3"
 			resource.Spec.GaudiScaleOut.DisableNetworkManager = true
+			resource.Spec.GaudiScaleOut.EnableLLDPAD = false
 			resource.Spec.GaudiScaleOut.MTU = 0
+			resource.Spec.GaudiScaleOut.PFCPriorities = "00000000"
 
 			Expect(k8sClient.Update(ctx, resource)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, typeNamespacedName, &ds)).To(Succeed())
 				g.Expect(ds.ObjectMeta.Name).To(BeEquivalentTo(typeNamespacedName.Name))
-				g.Expect(ds.Spec.Template.Spec.Containers).To(HaveLen(2))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(6))
+				g.Expect(ds.Spec.Template.Spec.Containers).To(HaveLen(1))
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(7))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[0]).To(BeEquivalentTo("--configure=true"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[1]).To(BeEquivalentTo("--keep-running"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[2]).To(BeEquivalentTo("--mode=L3"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[3]).To(BeEquivalentTo("--disable-networkmanager"))
-				g.Expect(ds.Spec.Template.Spec.Containers[1].Args).To(HaveLen(0))
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[4]).To(BeEquivalentTo("--wait=90s"))
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[5]).To(BeEquivalentTo("--gaudinet=/host/etc/habanalabs/gaudinet.json"))
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[6]).To(BeEquivalentTo("--pfc=none"))
 
 				g.Expect(ds.Spec.Template.Spec.Volumes).To(HaveLen(4))
 				g.Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(BeEquivalentTo("nfd-features"))
