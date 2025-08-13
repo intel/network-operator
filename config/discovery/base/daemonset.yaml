@@ -24,6 +24,9 @@ spec:
         hostPath:
           path: /etc/kubernetes/node-feature-discovery/features.d/
           type: DirectoryOrCreate
+      - name: lldpad
+        emptyDir:
+          sizeLimit: 32Mi
       containers:
       - env:
         - name: NODE_NAME
@@ -34,6 +37,7 @@ spec:
         image: intel/intel-network-linkdiscovery:latest
         imagePullPolicy: IfNotPresent
         name: configurator
+        command: [ /discover ]
         resources:
           limits:
             cpu: 100m
@@ -44,6 +48,37 @@ spec:
         volumeMounts:
         - mountPath: /etc/kubernetes/node-feature-discovery/features.d/
           name: nfd-features
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - NET_ADMIN
+              - NET_RAW
+      - env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        image: intel/intel-network-linkdiscovery:latest
+        imagePullPolicy: IfNotPresent
+        name: lldpad
+        command: [ "/bin/sh", "-c", "lldpad" ]
+        resources:
+          limits:
+            cpu: 100m
+            memory: 90Mi
+          requests:
+            cpu: 40m
+            memory: 45Mi
+        volumeMounts:
+        - mountPath: /var/lib/lldpad
+          name: lldpad
+        - mountPath: /var/run
+          name: lldpad
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

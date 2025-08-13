@@ -51,8 +51,8 @@ RUN mkdir /source
 WORKDIR /source
 
 RUN sed -i 's/\(Types: deb\).*/\1 deb-src/' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && apt-get install -y --no-install-recommends libpcap0.8 && \
-    apt source libdbus-1-3 --download-only && \
+    apt-get update && apt-get install -y --no-install-recommends libpcap0.8 lldpad && \
+    apt source libdbus-1-3 lldpad --download-only && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /workspace/discover /discover

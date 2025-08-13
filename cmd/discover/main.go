@@ -56,6 +56,7 @@ type cmdConfig struct {
 	keepRunning  bool
 	networkd     string
 	mtu          int
+	pfc          string
 }
 
 func sanitizeInput(config *cmdConfig) error {
@@ -76,6 +77,12 @@ func sanitizeInput(config *cmdConfig) error {
 		config.mode = L2
 	default:
 		return fmt.Errorf("Invalid mode '%s'", config.mode)
+	}
+
+	var err error
+	config.pfc, err = VerifyPFCArgument(config.pfc)
+	if err != nil {
+		return fmt.Errorf("Invalid PFC configuration: %v", err)
 	}
 
 	return nil
@@ -140,12 +147,18 @@ func preCleanups(config *cmdConfig) error {
 	return nil
 }
 
-func postCleanups(networkConfigs map[string]*networkConfiguration) {
+func postCleanups(config *cmdConfig, networkConfigs map[string]*networkConfiguration) {
 	klog.Info("Clean up before exiting...")
 
 	err := os.Remove(nfdLabelFile)
 	if err != nil {
 		klog.Warningf("Failed to remove NFD label file: %+v\n", err)
+	}
+
+	if config.pfc != "" {
+		if err := DisableAllPFC(networkConfigs); err != nil {
+			klog.Warningf("Failed to disable LLDP PFC on all interfaces: %v", err)
+		}
 	}
 
 	klog.Infof("Restoring interfaces to original state...")
@@ -176,6 +189,12 @@ func cmdRun(config *cmdConfig) error {
 
 	if len(allInterfaces) == 0 {
 		return fmt.Errorf("No interfaces found")
+	}
+
+	if config.pfc != "" {
+		if err := LookupLLDPTool(); err != nil {
+			return fmt.Errorf("Could not find lldptool: %v", err)
+		}
 	}
 
 	networkConfigs := getNetworkConfigs(allInterfaces)
@@ -236,7 +255,25 @@ func cmdRun(config *cmdConfig) error {
 		if err := interfacesRestoreDown(networkConfigs); err != nil {
 			return err
 		}
-	} else if config.configure && config.keepRunning {
+
+		return nil
+	}
+
+	if config.pfc != "" {
+		var err error
+
+		if config.pfc == pfcDisable {
+			err = DisableAllPFC(networkConfigs)
+		} else {
+			err = EnableAllPFC(config.pfc, networkConfigs)
+		}
+
+		if err != nil {
+			return fmt.Errorf("Failed to configure PFC: %v", err)
+		}
+	}
+
+	if config.keepRunning {
 		if s, err := os.Stat(nfdFeatureDir); err == nil && s.IsDir() {
 			content := nfdScaleOutReadyLabel + "\n"
 
@@ -247,7 +284,7 @@ func cmdRun(config *cmdConfig) error {
 
 		klog.Infof("Configurations done. Idling...")
 
-		defer postCleanups(networkConfigs)
+		defer postCleanups(config, networkConfigs)
 
 		term := make(chan os.Signal, 1)
 
@@ -296,6 +333,8 @@ func setupCmd() (*cobra.Command, error) {
 		"Write systemd networkd configuration files to given directory")
 	cmd.Flags().IntVarP(&config.mtu, "mtu", "", 1500,
 		"MTU value to set for interfaces")
+	cmd.Flags().StringVarP(&config.pfc, "pfc", "", "",
+		"Comma separated list of Priority Flow Control priorities (0-7) to enable")
 
 	return cmd, nil
 }
