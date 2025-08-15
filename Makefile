@@ -139,8 +139,8 @@ fuzz:
 
 DEPL_YAML_DIR ?= trivy-depl
 
-.PHONY: deployments
-deployments: kustomize
+.PHONY: trivy-deployments
+trivy-deployments: kustomize
 	rm -rf $(DEPL_YAML_DIR)
 	mkdir -p $(DEPL_YAML_DIR)
 	$(KUSTOMIZE) build config/operator/default > $(DEPL_YAML_DIR)/operator.yaml

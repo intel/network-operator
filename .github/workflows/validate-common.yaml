@@ -190,7 +190,7 @@ jobs:
           cache: false
       - name: Prepare env
         run: |
-          DEPL_YAML_DIR=trivy-depl make deployments
+          DEPL_YAML_DIR=trivy-depl make trivy-deployments
       - name: Run Trivy for deployments
         uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # 0.30.0
         with:
