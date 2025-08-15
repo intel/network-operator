@@ -49,78 +49,86 @@ The operator depends on following Kubernetes components:
 - kubectl version v1.31+.
 - Access to a Kubernetes v1.31+ cluster.
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+### Deploy operator using kubectl
+
+Images are available at [dockerhub.io](https://hub.docker.com/r/intel/intel-network-operator).
+
+**Install NFD Gaudi device rules into the cluster:**
 
 ```sh
-IMG=<some-registry>/intel-network-operator TAG=<some-tag> make operator-image operator-push
+kubectl apply -f config/nfd/gaudi-device-rule.yaml
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
-
-**Install the CRDs into the cluster:**
+**Install operator into the cluster:**
 
 ```sh
 kubectl apply -k config/operator/default/
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
-
-```sh
-make deploy IMG=<some-registry>/intel-network-operator:tag
-```
-
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
-
-> **NOTE**: This doesn't seem to work?.
-
 **Create instances of your solution**
-You can apply a Gaudi L3 example:
+
+Ensure that the samples have desired [operator configuration values](#operator-configuration)
+from the configuration options below. After that apply for example a Gaudi L3
+sample with:
 
 ```sh
 kubectl apply -f config/operator/samples/gaudi-l3.yaml
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+### Remove operator using kubectl
 
-### To Uninstall
 **Delete the instances (CRs) from the cluster:**
 
 ```sh
 kubectl delete -f config/operator/samples/gaudi-l3.yaml
 ```
 
-**UnDeploy the controller from the cluster:**
+**Uninstall the controller from the cluster:**
 
 ```sh
 kubectl delete -k config/operator/default/
 ```
 
-## Project Distribution
-
-Following are the steps to build the installer and distribute this project to users.
-
-1. Build the installer for the image built and published in the registry:
-
+**Remove NFD Gaudi device rules from the cluster:**
 ```sh
-make build-installer IMG=<some-registry>/intel-network-operator:tag
+kubectl delete -f config/nfd/gaudi-device-rule.yaml
 ```
 
-NOTE: The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without
-its dependencies.
+### Deploy and remove Operator using Helm
 
-2. Using the installer
+See the [README for Helm installation](charts/network-operator/README.md).
 
-Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project, i.e.:
+## Operator configuration
 
-```sh
-kubectl apply -f https://raw.githubusercontent.com/intel/network-operator/<tag or branch>/dist/install.yaml
-```
+The most important Network Operator CRD properties are:
+
+* `disableNetworkManager` boolean
+
+    Disable Gaudi scale-out interfaces in NetworkManager. For nodes where NetworkManager tries
+    to configure the Gaudi interfaces, prevent it from doing so.
+
+* `enableLLDPAD` boolean
+
+    Enable LLDP for Priority Flow Control in a dedicated container.
+    Keep this value as `false` if lldpad LLDP daemon is already present and
+    running on the host.
+
+* `layer` enum
+
+    Link layer where the scale-out communication should occur. Possible options are `L2` and `L3`.
+
+* `mtu` integer
+
+    description: MTU for the scale-out interfaces. Maximum `9000`, minimum `1500`.
+
+* `pfcPriorities` string
+
+    Bitmask of Priority Flow Control priorities to enable. Requires 'lldpad' on the host
+    or enabled in a container with the above `enableLLDPAD` boolean. Currently the only two
+    accepted values are `00000000` and `11110000`.
+
+The full set of properties is available in the [NetworkClusterPolicy CRD definition](config/operator/crd/bases/intel.com_networkclusterpolicies.yaml).
+Examples of Network Operator CRDs are found in the [samples directory](config/operator/samples/).
 
 ## Contributing
 
