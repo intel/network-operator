@@ -21,6 +21,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -96,6 +98,8 @@ func WriteSystemdNetworkd(networkdpath string, networkConfigs map[string]*networ
 func DeleteSystemdNetworkd(networkdpath string, configuredInterfaces []string) {
 	for _, ifname := range configuredInterfaces {
 		filename := networkdFilename(networkdpath, ifname)
-		_ = os.Remove(filename)
+		if err := os.Remove(filename); err != nil {
+			klog.Warningf("Failed to remove systemd-networkd file '%s': %v\n", filename, err)
+		}
 	}
 }

@@ -138,7 +138,7 @@ func preCleanups(config *cmdConfig) error {
 	}
 
 	if config.networkd != "" {
-		if err := os.MkdirAll(config.networkd, 0755); err != nil {
+		if err := os.MkdirAll(config.networkd, 0744); err != nil {
 			return fmt.Errorf("Cannot create systemd-networkd directory: %v", err)
 		}
 		klog.Infof("Created systemd-networkd directory %s", config.networkd)
@@ -348,5 +348,7 @@ func main() {
 		return
 	}
 
-	_ = cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		klog.Errorf("Command execution failed: %v\n", err)
+	}
 }

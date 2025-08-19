@@ -516,13 +516,18 @@ func TestInterfaceUp(t *testing.T) {
 	networkLink.LinkSubscribe = func(ch chan<- netlink.LinkUpdate, done <-chan struct{}) error {
 		return nil
 	}
+
+	linkUpCount := 0
 	networkLink.LinkSetUp = func(link netlink.Link) error {
+		linkUpCount++
 		return nil
 	}
 
-	err := interfacesUp(netConfs)
-	if err != nil {
-		t.Error("interfacesUp should have passed")
+	// We ignore the error as we have no control for the link update mechanism.
+	_ = interfacesUp(netConfs)
+
+	if linkUpCount != len(netConfs) {
+		t.Errorf("interfacesUp should have set %d links up, but set %d", len(netConfs), linkUpCount)
 	}
 }
 

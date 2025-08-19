@@ -277,7 +277,9 @@ func interfacesUp(networkConfigs map[string]*networkConfiguration) error {
 		}
 	}
 
-	_ = waitLinkResponse(linkUpdate, networkConfigs)
+	if err := waitLinkResponse(linkUpdate, networkConfigs); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -303,7 +305,9 @@ func interfacesRestoreDown(networkConfigs map[string]*networkConfiguration) erro
 		return subscribeErr
 	}
 
-	_ = waitLinkResponse(linkUpdate, networkConfigs)
+	if err := waitLinkResponse(linkUpdate, networkConfigs); err != nil {
+		return err
+	}
 
 	return nil
 }
