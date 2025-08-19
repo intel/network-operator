@@ -23,6 +23,7 @@ COPY cmd/operator cmd/operator
 COPY api/ api/
 COPY config/discovery config/discovery
 COPY internal/controller/ internal/controller/
+COPY LICENSE LICENSE
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
@@ -41,8 +42,7 @@ RUN apt-get update -y && apt-get --no-install-recommends -y install file && \
     ./checksec --file=/workspace/manager --output=csv | grep -q "$CHECKSEC_REF"
 
 RUN go get github.com/google/go-licenses && \
-    go run github.com/google/go-licenses save ./cmd/operator/ --save_path=licenses || \
-    true
+    go run github.com/google/go-licenses save ./cmd/operator/ --save_path licenses
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
