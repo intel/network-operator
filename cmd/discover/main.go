@@ -60,7 +60,7 @@ type cmdConfig struct {
 }
 
 func sanitizeInput(config *cmdConfig) error {
-	if config.mtu < 1500 {
+	if config.mtu > 0 && config.mtu < 1500 {
 		klog.Infof("Forcing MTU value 1500 (old %d)", config.mtu)
 
 		config.mtu = 1500
@@ -331,7 +331,7 @@ func setupCmd() (*cobra.Command, error) {
 		"Keep running after any configurations are done")
 	cmd.Flags().StringVarP(&config.networkd, "systemd-networkd", "", "",
 		"Write systemd networkd configuration files to given directory")
-	cmd.Flags().IntVarP(&config.mtu, "mtu", "", 1500,
+	cmd.Flags().IntVarP(&config.mtu, "mtu", "", 0,
 		"MTU value to set for interfaces")
 	cmd.Flags().StringVarP(&config.pfc, "pfc", "", "",
 		"Comma separated list of Priority Flow Control priorities (0-7) to enable")

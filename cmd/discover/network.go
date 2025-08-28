@@ -383,6 +383,10 @@ func addRoute(nwconfig *networkConfiguration, mask RouteMask) error {
 }
 
 func interfacesSetMTU(networkConfigurations map[string]*networkConfiguration, mtu int) {
+	if mtu == 0 {
+		return
+	}
+
 	for _, nwconfig := range networkConfigurations {
 		if err := networkLink.LinkSetMTU(nwconfig.link, mtu); err != nil {
 			klog.Warningf("Could not set MTU %d for interface '%s': %v",
