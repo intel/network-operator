@@ -147,6 +147,36 @@ func preCleanups(config *cmdConfig) error {
 	return nil
 }
 
+func initializeInterfaces(config *cmdConfig, networkConfigs map[string]*networkConfiguration) error {
+	if err := interfacesUp(networkConfigs); err != nil {
+		return err
+	}
+
+	interfacesSetMTU(networkConfigs, config.mtu)
+
+	if err := removeExistingIPs(networkConfigs); err != nil {
+		return fmt.Errorf("Failed to remove any existing IPs from interfaces: %+v", err)
+	}
+
+	return nil
+}
+
+func writeL3Configuration(config *cmdConfig, networkConfigs map[string]*networkConfiguration) error {
+	if config.gaudinetfile != "" {
+		if err := WriteGaudiNet(config.gaudinetfile, networkConfigs); err != nil {
+			klog.Errorf("Error: %v\n", err)
+		}
+	}
+
+	if config.networkd != "" {
+		if _, err := WriteSystemdNetworkd(config.networkd, networkConfigs); err != nil {
+			return fmt.Errorf("Could not create systemd-networkd configuration files: %v\n", err)
+		}
+	}
+
+	return nil
+}
+
 func postCleanups(config *cmdConfig, networkConfigs map[string]*networkConfiguration) {
 	klog.Info("Clean up before exiting...")
 
@@ -181,6 +211,12 @@ func cmdRun(config *cmdConfig) error {
 		return fmt.Errorf("Failed to pre-cleanup: %v", err)
 	}
 
+	if config.pfc != "" {
+		if err := LookupLLDPTool(); err != nil {
+			return fmt.Errorf("Could not find lldptool: %v", err)
+		}
+	}
+
 	allInterfaces := getNetworks()
 
 	if len(config.ifaces) > 0 {
@@ -189,12 +225,6 @@ func cmdRun(config *cmdConfig) error {
 
 	if len(allInterfaces) == 0 {
 		return fmt.Errorf("No interfaces found")
-	}
-
-	if config.pfc != "" {
-		if err := LookupLLDPTool(); err != nil {
-			return fmt.Errorf("Could not find lldptool: %v", err)
-		}
 	}
 
 	networkConfigs := getNetworkConfigs(allInterfaces)
@@ -214,14 +244,8 @@ func cmdRun(config *cmdConfig) error {
 		}
 	}
 
-	if err := interfacesUp(networkConfigs); err != nil {
+	if err := initializeInterfaces(config, networkConfigs); err != nil {
 		return err
-	}
-
-	interfacesSetMTU(networkConfigs, config.mtu)
-
-	if err := removeExistingIPs(networkConfigs); err != nil {
-		return fmt.Errorf("Failed to remove any existing IPs from interfaces: %+v", err)
 	}
 
 	if config.mode == L3 {
@@ -236,16 +260,8 @@ func cmdRun(config *cmdConfig) error {
 			klog.Infof("Configured %d of %d interfaces\n", numConfigured, numTotal)
 		}
 
-		if config.gaudinetfile != "" {
-			if err := WriteGaudiNet(config.gaudinetfile, networkConfigs); err != nil {
-				klog.Errorf("Error: %v\n", err)
-			}
-		}
-
-		if config.networkd != "" {
-			if _, err = WriteSystemdNetworkd(config.networkd, networkConfigs); err != nil {
-				return fmt.Errorf("Could not create systemd-networkd configuration files: %v\n", err)
-			}
+		if err := writeL3Configuration(config, networkConfigs); err != nil {
+			return err
 		}
 	}
 
