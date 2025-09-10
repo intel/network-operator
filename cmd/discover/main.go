@@ -46,17 +46,18 @@ const (
 )
 
 type cmdConfig struct {
-	ctx          context.Context
-	timeout      time.Duration
-	configure    bool
-	disableNM    bool
-	gaudinetfile string
-	ifaces       string
-	mode         string
-	keepRunning  bool
-	networkd     string
-	mtu          int
-	pfc          string
+	ctx                context.Context
+	timeout            time.Duration
+	configure          bool
+	disableNM          bool
+	gaudinetfile       string
+	ifaces             string
+	mode               string
+	keepRunning        bool
+	networkd           string
+	mtu                int
+	pfc                string
+	metricsBindAddress string
 }
 
 func sanitizeInput(config *cmdConfig) error {
@@ -202,6 +203,7 @@ func postCleanups(config *cmdConfig, networkConfigs map[string]*networkConfigura
 }
 
 func cmdRun(config *cmdConfig) error {
+	metrics := make(chan error, 1)
 	err := sanitizeInput(config)
 	if err != nil {
 		return err
@@ -247,6 +249,8 @@ func cmdRun(config *cmdConfig) error {
 	if err := initializeInterfaces(config, networkConfigs); err != nil {
 		return err
 	}
+
+	startMetricsServer(config, metrics, networkConfigs)
 
 	if config.mode == L3 {
 		detectLLDP(config, networkConfigs)
@@ -303,9 +307,16 @@ func cmdRun(config *cmdConfig) error {
 		defer postCleanups(config, networkConfigs)
 
 		term := make(chan os.Signal, 1)
-
 		signal.Notify(term, os.Interrupt, syscall.SIGTERM)
-		<-term
+
+		select {
+		case <-term:
+			klog.Infof("Exited")
+		case err := <-metrics:
+			klog.Fatalf("Metrics server returned: %v", err)
+			return err
+		}
+
 	}
 
 	return nil
@@ -351,6 +362,8 @@ func setupCmd() (*cobra.Command, error) {
 		"MTU value to set for interfaces")
 	cmd.Flags().StringVarP(&config.pfc, "pfc", "", "",
 		"Comma separated list of Priority Flow Control priorities (0-7) to enable")
+	cmd.Flags().StringVarP(&config.metricsBindAddress, "metrics-bind-address", "", "",
+		"Enable metrics exporter by specifying the address and/or port for the metrics endpoint.")
 
 	return cmd, nil
 }
