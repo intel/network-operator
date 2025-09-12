@@ -61,14 +61,19 @@ var (
 	}
 )
 
-func newNetworkMetricsInfo(macaddr string, ifname string, stats *ethStats) networkMetricsInfo {
+func newNetworkMetricsInfo(moduleid string, macaddr string, ifname string, stats *ethStats) networkMetricsInfo {
+	staticlabels := prometheus.Labels{"macaddr": strings.ToLower(macaddr), "ifname": ifname}
+	if moduleid != "" {
+		staticlabels["moduleid"] = moduleid
+	}
+
 	return networkMetricsInfo{
 		stats: stats,
 		prometheusDesc: prometheus.NewDesc(
 			defaultPrefix+stats.statisticsName,
 			stats.statisticsDesc,
 			nil,
-			prometheus.Labels{"macaddr": strings.ToLower(macaddr), "ifname": ifname},
+			staticlabels,
 		),
 	}
 }
@@ -88,6 +93,7 @@ func newExporter(networkConfigs map[string]*networkConfiguration) *Exporter {
 
 		for _, stats := range networkStatistics {
 			metricsInfo = append(metricsInfo, newNetworkMetricsInfo(
+				nwconfig.moduleId,
 				nwconfig.localHwAddr.String(),
 				ifname,
 				&stats))

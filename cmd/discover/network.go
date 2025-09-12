@@ -31,11 +31,15 @@ import (
 )
 
 const (
-	driverPath       = "bus/pci/drivers/habanalabs/"
-	pciDevicePattern = "????:??:??.?"
-	netDevicePattern = "net/*"
-
-	noAddress = "none"
+	driverPath         = "bus/pci/drivers/habanalabs/"
+	pciDevicePattern   = "????:??:??.?"
+	netDevicePattern   = "net/*"
+	accelDevicePath    = "devices/virtual/accel"
+	accelDevicePattern = "accel[0-9]*"
+	accelDeviceDir     = "device"
+	accelModuleIdFile  = "module_id"
+	accelPCIDeviceFile = "pci_addr"
+	noAddress          = "none"
 )
 
 type networkLinkFn struct {
@@ -63,6 +67,7 @@ var networkLink = networkLinkFn{
 }
 
 type networkConfiguration struct {
+	moduleId        string
 	link            netlink.Link
 	origState       net.Flags
 	expectResponse  bool
@@ -85,57 +90,114 @@ func sysfsDriverPath() string {
 	return filepath.Join(getSysfsRoot(), driverPath)
 }
 
-func getNetworks() []string {
-	habanaNetDevices := []string{}
+func getModuleIds() (map[string]string, error) {
+	moduleIds := make(map[string]string)
+
+	pattern := filepath.Join(getSysfsRoot(), accelDevicePath, accelDevicePattern, accelDeviceDir)
+	paths, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, path := range paths {
+		id, err := os.ReadFile(filepath.Join(path, accelModuleIdFile))
+		if err != nil {
+			return nil, err
+		}
+
+		pciaddr, err := os.ReadFile(filepath.Join(path, accelPCIDeviceFile))
+		if err != nil {
+			return nil, err
+		}
+
+		moduleIds[strings.TrimSpace(string(pciaddr))] = strings.TrimSpace(string(id))
+	}
+
+	return moduleIds, nil
+}
+
+func newNetworkConfiguration(ifname string, moduleId string) (*networkConfiguration, error) {
+	link, err := networkLink.LinkByName(ifname)
+	if err != nil {
+		return nil, fmt.Errorf("Link '%s' not found: %v", ifname, err)
+	}
+
+	return &networkConfiguration{
+		moduleId:    moduleId,
+		link:        link,
+		origState:   link.Attrs().Flags,
+		localHwAddr: &link.Attrs().HardwareAddr,
+	}, nil
+}
+
+func getNetworkConfigs(interfaces []string) ([]string, map[string]*networkConfiguration, error) {
+	links := make(map[string]*networkConfiguration)
+	moduleIds := make(map[string]string)
 
 	pattern := filepath.Join(sysfsDriverPath(), pciDevicePattern)
 	paths, err := filepath.Glob(pattern)
-
 	if err != nil {
-		klog.Warningf("no PCI devices found")
-		return habanaNetDevices
+		return nil, nil, err
 	}
 
+	if len(paths) > 0 {
+		var err error
+
+		moduleIds, err = getModuleIds()
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		klog.Warningf("No habanalabs kernel driver PCI devices found")
+	}
+
+	allinterfaces := paths
+
 	for _, p := range paths {
+		pciaddr := filepath.Base(p)
+		id, exists := moduleIds[pciaddr]
+		if !exists {
+			return nil, nil, fmt.Errorf("PCI device '%s' does not have a module id", pciaddr)
+		}
+
 		devicesymlinktarget, err := filepath.EvalSymlinks(p)
 		if err != nil {
-			klog.Warningf("Expected '%s' to be a symlink: %v", p, err)
-			continue
+			return nil, nil, fmt.Errorf("Expected '%s' to be a symlink: %v", p, err)
 		}
 
 		netdevicepattern := filepath.Join(devicesymlinktarget, netDevicePattern)
 		netdevices, err := filepath.Glob(netdevicepattern)
 		if err != nil {
-			klog.Warningf("Could not find network device files: %v", err)
+			return nil, nil, fmt.Errorf("Could not find network device files: %v", err)
 		}
+
 		for _, n := range netdevices {
-			name := filepath.Base(n)
-			habanaNetDevices = append(habanaNetDevices, name)
+			ifname := filepath.Base(n)
+			nwconfig, err := newNetworkConfiguration(ifname, id)
+			if err != nil {
+				return nil, nil, err
+			}
+			links[ifname] = nwconfig
 		}
 
 	}
 
-	return habanaNetDevices
-}
-
-func getNetworkConfigs(ifacenames []string) map[string]*networkConfiguration {
-	links := make(map[string]*networkConfiguration)
-
-	for _, name := range ifacenames {
-		link, err := networkLink.LinkByName(name)
-		if err != nil {
-			klog.Warningf("Link '%s' not found: %v", name, err)
+	for _, ifname := range interfaces {
+		if _, exists := links[ifname]; exists {
+			klog.Warningf("Device '%s' already discovered", ifname)
 			continue
 		}
 
-		links[name] = &networkConfiguration{
-			link:        link,
-			origState:   link.Attrs().Flags,
-			localHwAddr: &link.Attrs().HardwareAddr,
+		nwconfig, err := newNetworkConfiguration(ifname, "")
+		if err != nil {
+			return nil, nil, err
 		}
+		links[ifname] = nwconfig
+
+		allinterfaces = append(allinterfaces, ifname)
 	}
 
-	return links
+	return allinterfaces, links, nil
 }
 
 func selectMask30L3Address(nwconfig *networkConfiguration) (*net.IP, *net.IP, error) {

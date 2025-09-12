@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/vishvananda/netlink"
@@ -78,6 +79,7 @@ func TestSysFsRoot(t *testing.T) {
 	defer os.RemoveAll(testSysfsRoot)
 
 	os.Setenv("SYSFS_ROOT", testSysfsRoot)
+	defer os.Unsetenv("SYSFS_ROOT")
 
 	detectedSysfsRoot := getSysfsRoot()
 	if detectedSysfsRoot != testSysfsRoot {
@@ -113,6 +115,31 @@ func writeFakeSysfsEntries(testSysfsRoot string, devices map[string]fakeNetworkT
 			t.Errorf("cannot create symlink '%s' to '%s': %v", driverdirsymlink, pcidirdevice, err)
 		}
 	}
+
+	acceldir := path.Join(testSysfsRoot, accelDevicePath)
+	if err := os.MkdirAll(acceldir, 0755); err != nil {
+		t.Errorf("cannot create fake accel dir '%s': %v", acceldir, err)
+	}
+
+	accelid := 8
+	for _, fakenwconfig := range devices {
+		acceldevicedir := filepath.Join(acceldir, fmt.Sprintf("accel%d", accelid), accelDeviceDir)
+		if err := os.MkdirAll(acceldevicedir, 0755); err != nil {
+			t.Errorf("cannot create fake accel device dir '%s': %v", acceldevicedir, err)
+		}
+
+		filename := filepath.Join(acceldevicedir, accelModuleIdFile)
+		if err := os.WriteFile(filename, []byte(fakenwconfig.moduleid), 0644); err != nil {
+			t.Errorf("cannot create fake moduleid file '%s': %v", filename, err)
+		}
+
+		filename = filepath.Join(acceldevicedir, accelPCIDeviceFile)
+		if err := os.WriteFile(filename, []byte(fakenwconfig.pcidevice), 0644); err != nil {
+			t.Errorf("cannot create fake PCI device file '%s': %v", filename, err)
+		}
+
+		accelid++
+	}
 }
 
 type fakeLink struct {
@@ -129,6 +156,7 @@ func (l *fakeLink) Type() string {
 
 type fakeNetworkTestData struct {
 	pcidevice       string
+	moduleid        string
 	linkaddrs       []net.IPNet
 	nwconfig        networkConfiguration
 	numIPAddrs      int
@@ -140,6 +168,7 @@ func getFakeNetworkData() map[string]fakeNetworkTestData {
 		// Address and proper LLDP Port Description field
 		"eth_a": {
 			pcidevice: "0000:aa:00.0",
+			moduleid:  "0",
 			linkaddrs: []net.IPNet{
 				{
 					IP:   net.IPv4(192, 192, 192, 1),
@@ -162,6 +191,7 @@ func getFakeNetworkData() map[string]fakeNetworkTestData {
 		// No address, Port Description field with other string
 		"eth_b": {
 			pcidevice: "0000:bb:00.0",
+			moduleid:  "42",
 			linkaddrs: []net.IPNet{},
 			nwconfig: networkConfiguration{
 				link: &fakeLink{
@@ -179,6 +209,7 @@ func getFakeNetworkData() map[string]fakeNetworkTestData {
 		// Already configured with LLDP address 10.210.8.125/30
 		"eth_c": {
 			pcidevice: "0000:cc:00.0",
+			moduleid:  "80",
 			linkaddrs: []net.IPNet{
 				{
 					IP:   net.IPv4(10, 210, 8, 125),
@@ -224,6 +255,8 @@ func fakeLinkByName(name string) (netlink.Link, error) {
 }
 
 func TestFakeSysfs(t *testing.T) {
+	networkLink.LinkByName = fakeLinkByName
+
 	testSysfsRoot, err := os.MkdirTemp("", "networkoperator.")
 	if err != nil {
 		t.Errorf("cannot create tmp dir: %v", err)
@@ -231,18 +264,26 @@ func TestFakeSysfs(t *testing.T) {
 	defer os.RemoveAll(testSysfsRoot)
 
 	os.Setenv("SYSFS_ROOT", testSysfsRoot)
+	defer os.Unsetenv("SYSFS_ROOT")
 
+	allInterfaces, nwConfigs, err := getNetworkConfigs([]string{})
 	// no devices in the fake sysfs directory
-	for _, d := range getNetworks() {
-		t.Errorf("no devices should have been found: %s", d)
+	if len(allInterfaces) > 0 || len(nwConfigs) > 0 || err != nil {
+		t.Errorf("no devices should have been found: %v, %v: %v", allInterfaces, nwConfigs, err)
 	}
 
 	devices := getFakeNetworkData()
 	writeFakeSysfsEntries(testSysfsRoot, devices, t)
 
-	for _, d := range getNetworks() {
+	_, nwConfigs, err = getNetworkConfigs([]string{})
+
+	if err != nil {
+		t.Errorf("network config returned unexpected error: %v", err)
+	}
+
+	for d, nw := range nwConfigs {
 		if _, exists := devices[d]; !exists {
-			t.Errorf("found unexpected device '%s'", d)
+			t.Errorf("found unexpected device '%s' %v", d, nw)
 		}
 		delete(devices, d)
 	}
@@ -273,12 +314,32 @@ func TestLldpResults(t *testing.T) {
 }
 
 func TestGetNetworkConfigs(t *testing.T) {
-	networkLink.LinkByName = fakeLinkByName
 	networks := []string{"eth_a", "eth_b", "eth_c"}
-	networkconfigs := getNetworkConfigs(networks)
 
+	networkLink.LinkByName = fakeLinkByName
+
+	testSysfsRoot, err := os.MkdirTemp("", "networkoperator.")
+	if err != nil {
+		t.Errorf("cannot create tmp dir: %v", err)
+	}
+	defer os.RemoveAll(testSysfsRoot)
+
+	os.Setenv("SYSFS_ROOT", testSysfsRoot)
+	defer os.Unsetenv("SYSFS_ROOT")
+
+	writeFakeSysfsEntries(testSysfsRoot, getFakeNetworkData(), t)
+
+	networknames, networkconfigs, err := getNetworkConfigs([]string{})
+
+	if err != nil {
+		t.Errorf("Error '%v' returned, expected none", err)
+	}
+	if len(networknames) != len(networkconfigs) {
+		t.Errorf("%d network interface names returned, but %d networkConfigs returned",
+			len(networknames), len(networkconfigs))
+	}
 	if len(networkconfigs) != len(networks) {
-		t.Errorf("number of networkconfig and networks don't match")
+		t.Errorf("number of networkconfigs %d and networks %d don't match", len(networkconfigs), len(networks))
 	}
 	for _, iface := range networks {
 		if _, exists := networkconfigs[iface]; !exists {
@@ -291,10 +352,16 @@ func TestGetNetworkConfigs(t *testing.T) {
 	}
 
 	networks = []string{"eth_c", "eth_b", "foo"}
-	networkconfigs = getNetworkConfigs(networks)
+	networknames, networkconfigs, err = getNetworkConfigs(networks)
 
-	if len(networkconfigs) != 2 {
-		t.Errorf("wrong number (%d) of networkconfigs detected", len(networkconfigs))
+	if err == nil {
+		t.Errorf("Expected error to be returned")
+	}
+	if len(networknames) != 0 {
+		t.Errorf("wrong number (%d) of network names returned", len(networknames))
+	}
+	if len(networkconfigs) != 0 {
+		t.Errorf("wrong number (%d) of networkconfigs returned", len(networkconfigs))
 	}
 	if _, exists := networkconfigs["foo"]; exists {
 		t.Errorf("name 'foo' exists when it should not")
@@ -304,6 +371,20 @@ func TestGetNetworkConfigs(t *testing.T) {
 	}
 	if len(networkconfigs) > 0 {
 		t.Errorf("networkconfig has left over items")
+	}
+
+	_, networkconfigs, err = getNetworkConfigs([]string{})
+
+	if err != nil {
+		t.Errorf("received error %v, none expected", err)
+	}
+
+	fakenwconfigs := getFakeNetworkData()
+	for ifname, nwconfig := range networkconfigs {
+		if nwconfig.moduleId != fakenwconfigs[ifname].moduleid {
+			t.Errorf("expected interface %s module id %s, got %s",
+				ifname, fakenwconfigs[ifname].moduleid, nwconfig.moduleId)
+		}
 	}
 }
 
@@ -460,13 +541,15 @@ func TestAddRouteErrors(t *testing.T) {
 }
 
 func TestNoGaudiDevicesErrors(t *testing.T) {
+	networkLink.LinkByName = fakeLinkByName
+
 	// invalid directory to make Glob fail
 	os.Setenv("SYSFS_ROOT", "\\\\\\")
 	defer os.Unsetenv("SYSFS_ROOT")
 
-	devs := getNetworks()
-	if len(devs) > 0 {
-		t.Errorf("no devices should have been found: %s", devs)
+	allinterfaces, nwconfigs, _ := getNetworkConfigs([]string{})
+	if len(allinterfaces) > 0 || len(nwconfigs) > 0 {
+		t.Errorf("no devices should have been found: %s", allinterfaces)
 	}
 }
 

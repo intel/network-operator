@@ -219,19 +219,17 @@ func cmdRun(config *cmdConfig) error {
 		}
 	}
 
-	allInterfaces := getNetworks()
-
+	interfaces := []string{}
 	if len(config.ifaces) > 0 {
-		allInterfaces = append(allInterfaces, strings.Split(config.ifaces, ",")...)
+		interfaces = strings.Split(config.ifaces, ",")
 	}
 
-	if len(allInterfaces) == 0 {
+	allinterfaces, networkConfigs, err := getNetworkConfigs(interfaces)
+	if err != nil {
+		return err
+	}
+	if len(networkConfigs) == 0 {
 		return fmt.Errorf("No interfaces found")
-	}
-
-	networkConfigs := getNetworkConfigs(allInterfaces)
-	if len(networkConfigs) < len(allInterfaces) {
-		return fmt.Errorf("Not all interfaces were found in the system")
 	}
 
 	if config.disableNM {
@@ -240,7 +238,7 @@ func cmdRun(config *cmdConfig) error {
 			return fmt.Errorf("Failed to create NetworkManager: %v", err)
 		}
 
-		err = nm.DisableNetworkManagerForInterfaces(nmapi, allInterfaces)
+		err = nm.DisableNetworkManagerForInterfaces(nmapi, allinterfaces)
 		if err != nil {
 			return fmt.Errorf("Failed to disable interfaces in NetworkManager: %v", err)
 		}
