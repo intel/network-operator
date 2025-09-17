@@ -1,0 +1,14 @@
+apiVersion: intel.com/v1alpha1
+kind: NetworkClusterPolicy
+metadata:
+  name: netconf-gaudi-scale-out-l3
+spec:
+  configurationType: gaudi-so
+  gaudiScaleOut:
+    layer: L3
+    networkMetrics: true
+    image: intel/intel-network-linkdiscovery:latest
+    pullPolicy: IfNotPresent
+  logLevel: 1
+  nodeSelector:
+    intel.feature.node.kubernetes.io/gaudi-ready: "true"

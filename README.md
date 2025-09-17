@@ -40,6 +40,7 @@ The operator depends on following Kubernetes components:
 * Intel Gaudi base operator
 * Node Feature Discovery
 * Cert-manager
+* Prometheus (optional)
 
 ## Getting Started
 
@@ -97,6 +98,44 @@ kubectl delete -f config/nfd/gaudi-device-rule.yaml
 ### Deploy and remove Operator using Helm
 
 See the [README for Helm installation](charts/network-operator/README.md).
+
+### Prometheus scale-out network metrics
+
+In order to supply scale-out network metrics to Prometheus, enable them
+in the CR by setting `networkMetrics=true`. Use for example the
+[gaudi-l3-metrics](config/operator/samples/gaudi-l3-metrics.yaml) sample
+configuration.
+
+```sh
+kubectl apply -f config/operator/samples/gaudi-l3-metrics.yaml
+```
+
+This enables scale-out metrics at port `50152` and URL path `/metrics`.
+
+Sample can be removed using kubectl.
+```sh
+kubectl delete -f config/operator/samples/gaudi-l3-metrics.yaml
+```
+
+**Enable metrics Service and Prometheus ServiceMonitor for it**
+
+```sh
+kubectl apply -f config/discovery/prometheus/metrics-service.yaml
+```
+
+Prometheus needs to be installed for the following kubectl command to succeed.
+
+```sh
+kubectl apply -f config/discovery/prometheus/monitor.yaml
+```
+
+**Disable metrics Service and its Prometheus ServiceMonitor**
+
+Prometheus support can be removed using kubectl.
+```sh
+kubectl delete -f config/discovery/prometheus/monitor.yaml
+kubectl delete -f config/discovery/prometheus/metrics-service.yaml
+```
 
 ## Operator configuration
 

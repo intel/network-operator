@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: intel-network-tools-metrics-service
+  namespace: intel-network-operator
+  labels:
+    app: intel-network-tools-metrics-service
+spec:
+  selector:
+    app: intel-network-tools
+  ports:
+  - name: metrics-port
+    port: 50152

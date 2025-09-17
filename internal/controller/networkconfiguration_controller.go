@@ -65,8 +65,11 @@ const (
 	gaudinetPathHost      = "/etc/habanalabs/gaudinet.json"
 	gaudinetPathContainer = "/host" + gaudinetPathHost
 
-	lldpadContainer = "lldpad"
-	lldpadVolume    = "lldpad"
+	discoveryContainer = "configurator"
+	lldpadContainer    = "lldpad"
+	lldpadVolume       = "lldpad"
+
+	scaleOutMonitoringPort = 50152
 )
 
 func addHostVolume(ds *apps.DaemonSet, volumeType v1.HostPathType, volumeName, hostPath, containerPath string) {
@@ -181,6 +184,19 @@ func removeLLDPAD(ds *apps.DaemonSet) {
 	}
 }
 
+func addMetricsPort(ds *apps.DaemonSet) {
+	spec := &ds.Spec.Template.Spec
+
+	for _, c := range spec.Containers {
+		if c.Name == discoveryContainer {
+			c.Ports = append(c.Ports, v1.ContainerPort{
+				HostPort: scaleOutMonitoringPort,
+			})
+			break
+		}
+	}
+}
+
 func updateGaudiScaleOutDaemonSet(ds *apps.DaemonSet, netconf *networkv1alpha1.NetworkClusterPolicy, namespace string) {
 	ds.Name = netconf.Name
 	ds.ObjectMeta.Namespace = namespace
@@ -229,6 +245,11 @@ func updateGaudiScaleOutDaemonSet(ds *apps.DaemonSet, netconf *networkv1alpha1.N
 			pfcEnabled = "0,1,2,3"
 		}
 		args = append(args, fmt.Sprintf("--pfc=%s", pfcEnabled))
+	}
+
+	if netconf.Spec.GaudiScaleOut.NetworkMetrics {
+		args = append(args, fmt.Sprintf("--metrics-bind-address=:%d", scaleOutMonitoringPort))
+		addMetricsPort(ds)
 	}
 
 	ds.Spec.Template.Spec.Containers[0].Args = args

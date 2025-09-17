@@ -74,6 +74,9 @@ type GaudiScaleOutSpec struct {
 	// Currently accepted values are 00000000 or 11110000
 	// +kubebuilder:validation:Enum="00000000";"11110000"
 	PFCPriorities string `json:"pfcPriorities,omitempty"`
+
+	// Enable scale-out network metrics support.
+	NetworkMetrics bool `json:"networkMetrics,omitempty"`
 }
 
 // NetworkClusterPolicyStatus defines the observed state of NetworkClusterPolicy

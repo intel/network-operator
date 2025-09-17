@@ -78,6 +78,9 @@ spec:
                     maximum: 9000
                     minimum: 1500
                     type: integer
+                  networkMetrics:
+                    description: Enable scale-out network metrics support.
+                    type: boolean
                   pfcPriorities:
                     description: |-
                       Bitmask of Priority Flow Control priorities to enable
