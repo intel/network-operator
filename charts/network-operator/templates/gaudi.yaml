@@ -18,6 +18,15 @@ spec:
     image: "{{ .Values.config.gaudi.image.repository }}:{{ .Values.config.gaudi.image.tag }}"
     pullPolicy: {{ .Values.config.gaudi.image.imagePullPolicy }}
     mtu: {{ .Values.config.gaudi.mtu }}
+{{- if .Values.config.gaudi.networkManager }}
+    disableNetworkManager: {{ .Values.config.gaudi.networkManager.disable }}
+{{- end -}}
+{{- if .Values.config.gaudi.pfc }}
+    pfcPriorities: {{ .Values.config.gaudi.pfc.config | quote }}
+    enableLLDPAD: {{ .Values.config.gaudi.pfc.lldpad }}
+{{- end }}
+    networkMetrics: {{ .Values.config.gaudi.networkMetrics }}
+
   logLevel: {{ .Values.logLevel }}
   nodeSelector: {{- .Values.config.gaudi.nodeSelector | toYaml | nindent 4 }}
 {{- end }}

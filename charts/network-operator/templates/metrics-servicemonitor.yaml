@@ -1,0 +1,17 @@
+{{- if .Values.config.gaudi.networkMetrics }}
+# Prometheus Monitor Service (Metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: intel-network-tools-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: intel-network-tools-metrics
+spec:
+  selector:
+    matchlabel:
+      app: intel-network-tools-metrics-service
+  endpoints:
+  - path: /metrics
+    port: metrics-port
+{{- end -}}

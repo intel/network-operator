@@ -22,9 +22,15 @@ config:
     enabled: false
     mode: "L3"
     mtu: 8000
+    networkManager:
+      disable: false
+    pfc:
+      config: "11110000"
+      lldpad: false
+    networkMetrics: false
     image:
       repository: intel/intel-network-linkdiscovery
-      tag: "1.0.0"
+      tag: 1.0.0
       imagePullPolicy: IfNotPresent
     nodeSelector:
       intel.feature.node.kubernetes.io/gaudi-ready: "true"
