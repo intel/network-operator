@@ -34,6 +34,7 @@ import (
 	"github.com/intel/network-operator/pkg/lldp"
 
 	nm "github.com/intel/network-operator/internal/nm"
+	buildVersion "github.com/intel/network-operator/internal/version"
 )
 
 const (
@@ -368,6 +369,9 @@ func setupCmd() (*cobra.Command, error) {
 
 func main() {
 	defer klog.Flush()
+
+	buildVersion.PrintBuildDetails()
+
 	cmd, err := setupCmd()
 
 	if err != nil {

@@ -37,6 +37,7 @@ import (
 
 	networkv1alpha1 "github.com/intel/network-operator/api/v1alpha1"
 	"github.com/intel/network-operator/internal/controller"
+	buildVersion "github.com/intel/network-operator/internal/version"
 
 	//+kubebuilder:scaffold:imports
 
@@ -110,6 +111,8 @@ func main() {
 	klog.InitFlags(nil)
 
 	flag.Parse()
+
+	buildVersion.PrintBuildDetails()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 

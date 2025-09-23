@@ -6,11 +6,14 @@ FROM golang:1.23 AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
+ARG GITINFO
+ARG BUILDDATE
+ARG PKGNAME
 ENV GO111MODULE=on
 ENV CGOFLAGS="-trimpath -mod=readonly -buildmode=pie"
 ENV GCFLAGS="all=-spectre=all -N -l"
 ENV ASMFLAGS="all=-spectre=all"
-ENV LDFLAGS="all=-linkmode=external -s -w"
+ENV LDFLAGS="all=-linkmode=external -s -w -X ${PKGNAME}/internal/version.gitInfo=${GITINFO} -X ${PKGNAME}/internal/version.buildDate=${BUILDDATE}"
 
 WORKDIR /workspace
 # Copy the Go Modules manifests

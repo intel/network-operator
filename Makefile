@@ -157,9 +157,15 @@ build: manifests generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
+PKG = github.com/intel/network-operator
+GIT_INFO = $(shell git describe --tags --always HEAD)
+BUILD_DATE = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+DOCKER_BUILD_ARGS = --build-arg PKGNAME=${PKG} --build-arg GITINFO=${GIT_INFO} --build-arg=BUILDDATE=${BUILD_DATE}
+
 .PHONY: operator-image
 operator-image:
-	$(CONTAINER_TOOL) build -f build/Dockerfile.operator -t ${IMG} .
+	$(CONTAINER_TOOL) build ${DOCKER_BUILD_ARGS} -f build/Dockerfile.operator -t ${IMG} .
 
 .PHONY: operator-push
 operator-push:
@@ -168,7 +174,7 @@ operator-push:
 # TODO: what would be a good image name?
 .PHONY: discover-image
 discover-image:
-	$(CONTAINER_TOOL) build -f build/Dockerfile.linkdiscovery -t intel/intel-network-linkdiscovery:${TAG} .
+	$(CONTAINER_TOOL) build ${DOCKER_BUILD_ARGS} -f build/Dockerfile.linkdiscovery -t intel/intel-network-linkdiscovery:${TAG} .
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
