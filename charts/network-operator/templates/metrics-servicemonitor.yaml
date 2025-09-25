@@ -6,10 +6,12 @@ metadata:
   name: intel-network-tools-metrics
   namespace: {{ .Release.Namespace }}
   labels:
-    app: intel-network-tools-metrics
+{{- with .Values.prometheus.labels }}
+{{ toYaml . | indent 4 }}
+{{- end }}
 spec:
   selector:
-    matchlabel:
+    matchLabels:
       app: intel-network-tools-metrics-service
   endpoints:
   - path: /metrics

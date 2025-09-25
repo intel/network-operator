@@ -34,3 +34,11 @@ config:
       imagePullPolicy: IfNotPresent
     nodeSelector:
       intel.feature.node.kubernetes.io/gaudi-ready: "true"
+
+prometheus:
+  labels:
+    # replace with the label your Prometheus' selector is configured with:
+    #   release: prometheus
+    #   release: monitoring
+    # or similar
+    release: prom

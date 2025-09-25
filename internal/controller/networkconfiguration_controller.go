@@ -24,6 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
@@ -66,8 +67,9 @@ const (
 	gaudinetPathContainer = "/host" + gaudinetPathHost
 
 	discoveryContainer = "configurator"
-	lldpadContainer    = "lldpad"
-	lldpadVolume       = "lldpad"
+	lldpadID           = "lldpad"
+
+	emptyDirSize = "32Mi"
 
 	scaleOutMonitoringPort = 50152
 )
@@ -108,6 +110,36 @@ func addHostVolume(ds *apps.DaemonSet, volumeType v1.HostPathType, volumeName, h
 			c.VolumeMounts = []v1.VolumeMount{mountAdd}
 		} else {
 			c.VolumeMounts = append(c.VolumeMounts, mountAdd)
+		}
+	}
+}
+
+func delHostVolumeIfExists(ds *apps.DaemonSet, volumeName string) {
+	index := -1
+	for i, vol := range ds.Spec.Template.Spec.Volumes {
+		if vol.Name == volumeName {
+			index = i
+			break
+		}
+	}
+
+	if index >= 0 {
+		ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes[:index], ds.Spec.Template.Spec.Volumes[index+1:]...)
+	}
+
+	for containerIndex := range ds.Spec.Template.Spec.Containers {
+		c := &ds.Spec.Template.Spec.Containers[containerIndex]
+		index := -1
+		for i, volMount := range c.VolumeMounts {
+			if volMount.Name == volumeName {
+				index = i
+				break
+			}
+		}
+
+		if index >= 0 {
+			c.VolumeMounts = append(c.VolumeMounts[:index], c.VolumeMounts[index+1:]...)
+			break
 		}
 	}
 }
@@ -167,18 +199,58 @@ func (r *NetworkClusterPolicyReconciler) createOpenShiftCollateral(ctx context.C
 	log.Info("Role binding created", "name", rb.Name)
 }
 
+func addLLDPADContainer(ds *apps.DaemonSet, netconf *networkv1alpha1.NetworkClusterPolicy) {
+	spec := &ds.Spec.Template.Spec
+
+	volumeFound := false
+	for _, v := range spec.Volumes {
+		if v.Name == lldpadID {
+			volumeFound = true
+		}
+	}
+
+	if !volumeFound {
+		size, _ := resource.ParseQuantity(emptyDirSize)
+		spec.Volumes = append(spec.Volumes, v1.Volume{
+			Name: lldpadID,
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{
+					SizeLimit: &size,
+				},
+			},
+		})
+	}
+
+	contFound := false
+	for _, c := range spec.Containers {
+		if c.Name == lldpadID {
+			contFound = true
+		}
+	}
+
+	if !contFound {
+		c := discovery.LLDPADContainer()
+		c.Image = netconf.Spec.GaudiScaleOut.Image
+		c.ImagePullPolicy = v1.PullPolicy(netconf.Spec.GaudiScaleOut.PullPolicy)
+
+		// TODO: add possibility to set cpu&memory requests/limits
+
+		spec.Containers = append(spec.Containers, *c)
+	}
+}
+
 func removeLLDPAD(ds *apps.DaemonSet) {
 	spec := &ds.Spec.Template.Spec
 
 	for idx, c := range spec.Containers {
-		if c.Name == lldpadContainer {
+		if c.Name == lldpadID {
 			spec.Containers = append(spec.Containers[:idx], spec.Containers[idx+1:]...)
 			break
 		}
 	}
 
 	for idx, v := range ds.Spec.Template.Spec.Volumes {
-		if v.Name == lldpadVolume {
+		if v.Name == lldpadID {
 			spec.Volumes = append(spec.Volumes[:idx], spec.Volumes[idx+1:]...)
 		}
 	}
@@ -187,11 +259,39 @@ func removeLLDPAD(ds *apps.DaemonSet) {
 func addMetricsPort(ds *apps.DaemonSet) {
 	spec := &ds.Spec.Template.Spec
 
-	for _, c := range spec.Containers {
+	for contIndex := range spec.Containers {
+		c := &spec.Containers[contIndex]
+
 		if c.Name == discoveryContainer {
+			for _, p := range c.Ports {
+				if p.HostPort == scaleOutMonitoringPort {
+					return
+				}
+			}
+
 			c.Ports = append(c.Ports, v1.ContainerPort{
-				HostPort: scaleOutMonitoringPort,
+				HostPort:      scaleOutMonitoringPort,
+				ContainerPort: scaleOutMonitoringPort,
 			})
+
+			break
+		}
+	}
+}
+
+func delMetricsPortIfExists(ds *apps.DaemonSet) {
+	spec := &ds.Spec.Template.Spec
+
+	for contIndex := range spec.Containers {
+		c := &spec.Containers[contIndex]
+
+		if c.Name == discoveryContainer {
+			for i, p := range c.Ports {
+				if p.HostPort == scaleOutMonitoringPort {
+					c.Ports = append(c.Ports[:i], c.Ports[i+1:]...)
+					break
+				}
+			}
 			break
 		}
 	}
@@ -208,6 +308,8 @@ func updateGaudiScaleOutDaemonSet(ds *apps.DaemonSet, netconf *networkv1alpha1.N
 	if len(netconf.Spec.GaudiScaleOut.Image) > 0 {
 		ds.Spec.Template.Spec.Containers[0].Image = netconf.Spec.GaudiScaleOut.Image
 	}
+
+	// TODO: add possibility to set cpu&memory requests/limits
 
 	args := []string{
 		"--configure=true", "--keep-running",
@@ -234,6 +336,8 @@ func updateGaudiScaleOutDaemonSet(ds *apps.DaemonSet, netconf *networkv1alpha1.N
 		args = append(args, "--wait=90s", fmt.Sprintf("--gaudinet=%s", gaudinetPathContainer))
 
 		addHostVolume(ds, v1.HostPathDirectoryOrCreate, "gaudinetpath", filepath.Dir(gaudinetPathHost), filepath.Dir(gaudinetPathContainer))
+	case layerSelectionL2:
+		delHostVolumeIfExists(ds, "gaudinetpath")
 	}
 
 	if netconf.Spec.GaudiScaleOut.PFCPriorities != "" {
@@ -250,11 +354,15 @@ func updateGaudiScaleOutDaemonSet(ds *apps.DaemonSet, netconf *networkv1alpha1.N
 	if netconf.Spec.GaudiScaleOut.NetworkMetrics {
 		args = append(args, fmt.Sprintf("--metrics-bind-address=:%d", scaleOutMonitoringPort))
 		addMetricsPort(ds)
+	} else {
+		delMetricsPortIfExists(ds)
 	}
 
 	ds.Spec.Template.Spec.Containers[0].Args = args
 
-	if !netconf.Spec.GaudiScaleOut.EnableLLDPAD {
+	if netconf.Spec.GaudiScaleOut.EnableLLDPAD {
+		addLLDPADContainer(ds, netconf)
+	} else {
 		removeLLDPAD(ds)
 	}
 }

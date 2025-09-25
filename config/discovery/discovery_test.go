@@ -38,3 +38,14 @@ func TestOpenShiftRoleBinding(t *testing.T) {
 		t.Error("expected to receive a valid role binding")
 	}
 }
+
+func TestLLDPADContainer(t *testing.T) {
+	c := LLDPADContainer()
+	if c != nil {
+		if c.Name != "lldpad" {
+			t.Errorf("expected container name to be 'lldpad', got: %s", c.Name)
+		}
+	} else {
+		t.Error("expected to receive a valid container")
+	}
+}

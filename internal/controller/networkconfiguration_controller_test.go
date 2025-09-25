@@ -23,6 +23,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
+	resourceApi "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,26 +106,51 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 			var sa core.ServiceAccount
 			var rb rbac.RoleBinding
 
+			expectedArgs := []string{
+				"--configure=true",
+				"--keep-running",
+				"--mode=L3",
+				"--mtu=8000",
+				"--wait=90s",
+				"--gaudinet=/host/etc/habanalabs/gaudinet.json",
+				"--pfc=0,1,2,3",
+			}
+
+			expectedVolumes := []string{
+				"nfd-features",
+				"lldpad",
+				"gaudinetpath",
+			}
+
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, typeNamespacedName, &ds)).To(Succeed())
 				g.Expect(ds.ObjectMeta.Name).To(BeEquivalentTo(typeNamespacedName.Name))
 				g.Expect(ds.Spec.Template.Spec.ServiceAccountName).To(BeEquivalentTo(resourceName + "-sa"))
 				g.Expect(ds.Spec.Template.Spec.Containers).To(HaveLen(2))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].Image).To(BeEquivalentTo("intel/my-linkdiscovery:latest"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(7))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[0]).To(BeEquivalentTo("--configure=true"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[1]).To(BeEquivalentTo("--keep-running"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[2]).To(BeEquivalentTo("--mode=L3"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[3]).To(BeEquivalentTo("--mtu=8000"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[4]).To(BeEquivalentTo("--wait=90s"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[5]).To(BeEquivalentTo("--gaudinet=/host/etc/habanalabs/gaudinet.json"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[6]).To(BeEquivalentTo("--pfc=0,1,2,3"))
+
+				verified := map[string]struct{}{}
+
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(len(expectedArgs)))
+				for _, arg := range ds.Spec.Template.Spec.Containers[0].Args {
+					g.Expect(expectedArgs).To(ContainElement(arg))
+					verified[arg] = struct{}{}
+				}
+
+				g.Expect(verified).To(HaveLen(len(expectedArgs)))
+
 				g.Expect(ds.Spec.Template.Spec.Containers[1].Args).To(HaveLen(0))
 
-				g.Expect(ds.Spec.Template.Spec.Volumes).To(HaveLen(3))
-				g.Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(BeEquivalentTo("nfd-features"))
-				g.Expect(ds.Spec.Template.Spec.Volumes[1].Name).To(BeEquivalentTo("lldpad"))
-				g.Expect(ds.Spec.Template.Spec.Volumes[2].Name).To(BeEquivalentTo("gaudinetpath"))
+				verified = map[string]struct{}{}
+
+				g.Expect(ds.Spec.Template.Spec.Volumes).To(HaveLen(len(expectedVolumes)))
+				for _, vol := range ds.Spec.Template.Spec.Volumes {
+					g.Expect(expectedVolumes).To(ContainElement(vol.Name))
+					verified[vol.Name] = struct{}{}
+				}
+
+				g.Expect(verified).To(HaveLen(len(expectedVolumes)))
+
 				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(2))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts[0].Name).To(BeEquivalentTo("nfd-features"))
 				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts[1].Name).To(BeEquivalentTo("gaudinetpath"))
@@ -147,17 +173,30 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 			resource.Spec.GaudiScaleOut.Layer = "L2"
 			resource.Spec.GaudiScaleOut.PFCPriorities = ""
 
+			expectedArgs = []string{
+				"--configure=true",
+				"--keep-running",
+				"--mode=L2",
+				"--mtu=8000",
+			}
+
 			Expect(k8sClient.Update(ctx, resource)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, typeNamespacedName, &ds)).To(Succeed())
 				g.Expect(ds.ObjectMeta.Name).To(BeEquivalentTo(typeNamespacedName.Name))
 				g.Expect(ds.Spec.Template.Spec.Containers).To(HaveLen(2))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(4))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[0]).To(BeEquivalentTo("--configure=true"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[1]).To(BeEquivalentTo("--keep-running"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[2]).To(BeEquivalentTo("--mode=L2"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[3]).To(BeEquivalentTo("--mtu=8000"))
+
+				verified := map[string]struct{}{}
+
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(len(expectedArgs)))
+				for _, arg := range ds.Spec.Template.Spec.Containers[0].Args {
+					g.Expect(expectedArgs).To(ContainElement(arg))
+					verified[arg] = struct{}{}
+				}
+
+				g.Expect(verified).To(HaveLen(len(expectedArgs)))
+
 				g.Expect(ds.Spec.Template.Spec.Containers[1].Args).To(HaveLen(0))
 			}, timeout, interval).Should(Succeed())
 
@@ -167,6 +206,26 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 			resource.Spec.GaudiScaleOut.EnableLLDPAD = false
 			resource.Spec.GaudiScaleOut.MTU = 0
 			resource.Spec.GaudiScaleOut.PFCPriorities = "00000000"
+			resource.Spec.GaudiScaleOut.NetworkMetrics = true
+
+			expectedArgs = []string{
+				"--configure=true",
+				"--keep-running",
+				"--mode=L3",
+				"--disable-networkmanager",
+				"--wait=90s",
+				"--gaudinet=/host/etc/habanalabs/gaudinet.json",
+				"--pfc=none",
+				"--metrics-bind-address=:50152",
+			}
+
+			// Same names are also used for volume mounts
+			expectedVolumes = []string{
+				"nfd-features",
+				"var-run-dbus",
+				"networkmanager",
+				"gaudinetpath",
+			}
 
 			Expect(k8sClient.Update(ctx, resource)).To(Succeed())
 
@@ -174,25 +233,118 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 				g.Expect(k8sClient.Get(ctx, typeNamespacedName, &ds)).To(Succeed())
 				g.Expect(ds.ObjectMeta.Name).To(BeEquivalentTo(typeNamespacedName.Name))
 				g.Expect(ds.Spec.Template.Spec.Containers).To(HaveLen(1))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(7))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[0]).To(BeEquivalentTo("--configure=true"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[1]).To(BeEquivalentTo("--keep-running"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[2]).To(BeEquivalentTo("--mode=L3"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[3]).To(BeEquivalentTo("--disable-networkmanager"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[4]).To(BeEquivalentTo("--wait=90s"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[5]).To(BeEquivalentTo("--gaudinet=/host/etc/habanalabs/gaudinet.json"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].Args[6]).To(BeEquivalentTo("--pfc=none"))
 
-				g.Expect(ds.Spec.Template.Spec.Volumes).To(HaveLen(4))
-				g.Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(BeEquivalentTo("nfd-features"))
-				g.Expect(ds.Spec.Template.Spec.Volumes[1].Name).To(BeEquivalentTo("gaudinetpath"))
-				g.Expect(ds.Spec.Template.Spec.Volumes[2].Name).To(BeEquivalentTo("var-run-dbus"))
-				g.Expect(ds.Spec.Template.Spec.Volumes[3].Name).To(BeEquivalentTo("networkmanager"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(4))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts[0].Name).To(BeEquivalentTo("nfd-features"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts[1].Name).To(BeEquivalentTo("gaudinetpath"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts[2].Name).To(BeEquivalentTo("var-run-dbus"))
-				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts[3].Name).To(BeEquivalentTo("networkmanager"))
+				verified := map[string]struct{}{}
+
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(len(expectedArgs)))
+				for _, arg := range ds.Spec.Template.Spec.Containers[0].Args {
+					g.Expect(expectedArgs).To(ContainElement(arg))
+					verified[arg] = struct{}{}
+				}
+
+				g.Expect(verified).To(HaveLen(len(expectedArgs)))
+
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Ports).To(HaveLen(1))
+
+				verified = map[string]struct{}{}
+
+				g.Expect(ds.Spec.Template.Spec.Volumes).To(HaveLen(len(expectedVolumes)))
+				for _, vol := range ds.Spec.Template.Spec.Volumes {
+					g.Expect(expectedVolumes).To(ContainElement(vol.Name))
+					verified[vol.Name] = struct{}{}
+				}
+
+				g.Expect(verified).To(HaveLen(len(expectedVolumes)))
+
+				verified = map[string]struct{}{}
+
+				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(len(expectedVolumes)))
+				for _, vol := range ds.Spec.Template.Spec.Containers[0].VolumeMounts {
+					g.Expect(expectedVolumes).To(ContainElement(vol.Name))
+					verified[vol.Name] = struct{}{}
+				}
+
+				g.Expect(verified).To(HaveLen(len(expectedVolumes)))
+			}, timeout, interval).Should(Succeed())
+
+			resource.Spec.GaudiScaleOut.EnableLLDPAD = true
+			resource.Spec.GaudiScaleOut.NetworkMetrics = false
+
+			expectedArgs = []string{
+				"--configure=true",
+				"--keep-running",
+				"--mode=L3",
+				"--disable-networkmanager",
+				"--wait=90s",
+				"--gaudinet=/host/etc/habanalabs/gaudinet.json",
+				"--pfc=none",
+			}
+
+			expectedVolumes = []string{
+				"nfd-features",
+				"var-run-dbus",
+				"networkmanager",
+				"gaudinetpath",
+				"lldpad",
+			}
+
+			expectedVolMountsC0 := []string{
+				"nfd-features",
+				"var-run-dbus",
+				"networkmanager",
+				"gaudinetpath",
+			}
+
+			expectedVolMountPathsC1 := []string{
+				"/var/lib/lldpad", "/var/run",
+			}
+
+			Expect(k8sClient.Update(ctx, resource)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, typeNamespacedName, &ds)).To(Succeed())
+				g.Expect(ds.ObjectMeta.Name).To(BeEquivalentTo(typeNamespacedName.Name))
+				g.Expect(ds.Spec.Template.Spec.Containers).To(HaveLen(2))
+
+				verified := map[string]struct{}{}
+
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(HaveLen(len(expectedArgs)))
+				for _, arg := range ds.Spec.Template.Spec.Containers[0].Args {
+					g.Expect(expectedArgs).To(ContainElement(arg))
+					verified[arg] = struct{}{}
+				}
+
+				g.Expect(verified).To(HaveLen(len(expectedArgs)))
+
+				g.Expect(ds.Spec.Template.Spec.Containers[0].Ports).To(HaveLen(0))
+
+				verified = map[string]struct{}{}
+				g.Expect(ds.Spec.Template.Spec.Volumes).To(HaveLen(len(expectedVolumes)))
+				for _, vol := range ds.Spec.Template.Spec.Volumes {
+					g.Expect(expectedVolumes).To(ContainElement(vol.Name))
+					verified[vol.Name] = struct{}{}
+				}
+
+				g.Expect(verified).To(HaveLen(len(expectedVolumes)))
+
+				g.Expect(*ds.Spec.Template.Spec.Volumes[4].VolumeSource.EmptyDir.SizeLimit).To(BeEquivalentTo(resourceApi.MustParse(emptyDirSize)))
+
+				verified = map[string]struct{}{}
+
+				g.Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts).To(HaveLen(len(expectedVolMountsC0)))
+				for _, vol := range ds.Spec.Template.Spec.Containers[0].VolumeMounts {
+					g.Expect(expectedVolMountsC0).To(ContainElement(vol.Name))
+					verified[vol.Name] = struct{}{}
+				}
+
+				g.Expect(verified).To(HaveLen(len(expectedVolMountsC0)))
+
+				g.Expect(ds.Spec.Template.Spec.Containers[1].VolumeMounts).To(HaveLen(len(expectedVolMountPathsC1)))
+				for _, vol := range ds.Spec.Template.Spec.Containers[1].VolumeMounts {
+					g.Expect(vol.Name).To(BeEquivalentTo("lldpad"))
+					g.Expect(expectedVolMountPathsC1).To(ContainElement(vol.MountPath))
+				}
+
 			}, timeout, interval).Should(Succeed())
 
 			Expect(k8sClient.Delete(ctx, nicpolicy)).To(Succeed())

@@ -119,11 +119,16 @@ kubectl delete -f config/operator/samples/gaudi-l3-metrics.yaml
 
 **Enable metrics Service and Prometheus ServiceMonitor for it**
 
+The following commands depend on Prometheus to be installed in the cluster.
+
 ```sh
 kubectl apply -f config/discovery/prometheus/metrics-service.yaml
 ```
 
-Prometheus needs to be installed for the following kubectl command to succeed.
+Prometheus is typically configured to scrape endpoints based on the labels in the ServiceMonitor objects. The selector can be read from the cluster with this command:
+```kubectl get prometheuses.monitoring.coreos.com --all-namespaces -o jsonpath="{.items[*].spec.serviceMonitorSelector}"```
+
+**NOTE:** The label should be added to the ServiceMonitor's labels. Before it is deployed to the cluster.
 
 ```sh
 kubectl apply -f config/discovery/prometheus/monitor.yaml
@@ -165,6 +170,10 @@ The most important Network Operator CRD properties are:
     Bitmask of Priority Flow Control priorities to enable. Requires 'lldpad' on the host
     or enabled in a container with the above `enableLLDPAD` boolean. Currently the only two
     accepted values are `00000000` and `11110000`.
+
+* `networkMetrics` boolean
+
+    Enable scale-out network metrics from an HTTP endpoint on the Pod. Prometheus can be configured to scrape the endpoint with [Service and ServiceMonitor objects](#prometheus-scale-out-network-metrics).
 
 The full set of properties is available in the [NetworkClusterPolicy CRD definition](config/operator/crd/bases/intel.com_networkclusterpolicies.yaml).
 Examples of Network Operator CRDs are found in the [samples directory](config/operator/samples/).

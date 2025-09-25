@@ -6,9 +6,10 @@ metadata:
   namespace: intel-network-operator
   labels:
     app: intel-network-tools-metrics
+    release: prom
 spec:
   selector:
-    matchlabel:
+    matchLabels:
       app: intel-network-tools-metrics-service
   endpoints:
   - path: /metrics

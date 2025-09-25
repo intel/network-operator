@@ -1,0 +1,25 @@
+image: intel/intel-network-linkdiscovery:latest
+imagePullPolicy: IfNotPresent
+name: lldpad
+command: [ "/bin/sh", "-c", "lldpad" ]
+resources:
+  limits:
+    cpu: 100m
+    memory: 90Mi
+  requests:
+    cpu: 40m
+    memory: 45Mi
+volumeMounts:
+- mountPath: /var/lib/lldpad
+  name: lldpad
+- mountPath: /var/run
+  name: lldpad
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - NET_ADMIN
+      - NET_RAW

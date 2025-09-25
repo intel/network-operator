@@ -32,6 +32,9 @@ var contentLinkDiscoveryServiceAccount []byte
 //go:embed openshift/rolebinding.yaml
 var contentOpenshiftRoleBinding []byte
 
+//go:embed base/lldpad-container.yaml
+var contentLLDPADContainer []byte
+
 func GaudiDiscoveryDaemonSet() *apps.DaemonSet {
 	return getDaemonset(contentGaudiDiscoveryDs).DeepCopy()
 }
@@ -42,6 +45,17 @@ func GaudiLinkDiscoveryServiceAccount() *core.ServiceAccount {
 
 func OpenShiftRoleBinding() *rbac.RoleBinding {
 	return getRoleBinding(contentOpenshiftRoleBinding).DeepCopy()
+}
+
+func LLDPADContainer() *core.Container {
+	var result core.Container
+
+	err := yaml.Unmarshal(contentLLDPADContainer, &result)
+	if err != nil {
+		panic(err)
+	}
+
+	return &result
 }
 
 // getDaemonset unmarshalls yaml content into a DaemonSet object.
