@@ -34,7 +34,7 @@ const (
 	driverPath         = "bus/pci/drivers/habanalabs/"
 	pciDevicePattern   = "????:??:??.?"
 	netDevicePattern   = "net/*"
-	accelDevicePath    = "devices/virtual/accel"
+	accelDevicePath    = "class/accel"
 	accelDevicePattern = "accel[0-9]*"
 	accelDeviceDir     = "device"
 	accelModuleIdFile  = "module_id"
@@ -90,27 +90,40 @@ func sysfsDriverPath() string {
 	return filepath.Join(getSysfsRoot(), driverPath)
 }
 
+func sysfsClassAccelPath() string {
+	return filepath.Join(getSysfsRoot(), accelDevicePath)
+}
+
 func getModuleIds() (map[string]string, error) {
 	moduleIds := make(map[string]string)
 
-	pattern := filepath.Join(getSysfsRoot(), accelDevicePath, accelDevicePattern, accelDeviceDir)
+	pattern := filepath.Join(sysfsClassAccelPath(), accelDevicePattern)
 	paths, err := filepath.Glob(pattern)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, path := range paths {
-		id, err := os.ReadFile(filepath.Join(path, accelModuleIdFile))
+		id, err := os.ReadFile(filepath.Join(path, accelDeviceDir, accelModuleIdFile))
 		if err != nil {
-			return nil, err
+			klog.Warningf("no module ID found in %s", path)
+
+			continue
 		}
 
-		pciaddr, err := os.ReadFile(filepath.Join(path, accelPCIDeviceFile))
+		pciaddr, err := os.ReadFile(filepath.Join(path, accelDeviceDir, accelPCIDeviceFile))
 		if err != nil {
-			return nil, err
+			klog.Warningf("no PCI address file in %s", path)
+
+			continue
 		}
 
-		moduleIds[strings.TrimSpace(string(pciaddr))] = strings.TrimSpace(string(id))
+		trimPCI := strings.TrimSpace(string(pciaddr))
+		trimID := strings.TrimSpace(string(id))
+
+		klog.V(3).Infof("PCI address %s has module ID: %s", trimPCI, trimID)
+
+		moduleIds[trimPCI] = trimID
 	}
 
 	return moduleIds, nil
@@ -157,7 +170,7 @@ func getNetworkConfigs(interfaces []string) ([]string, map[string]*networkConfig
 		pciaddr := filepath.Base(p)
 		id, exists := moduleIds[pciaddr]
 		if !exists {
-			return nil, nil, fmt.Errorf("PCI device '%s' does not have a module id", pciaddr)
+			klog.Warningf("PCI device '%s' does not have a module id", pciaddr)
 		}
 
 		devicesymlinktarget, err := filepath.EvalSymlinks(p)
