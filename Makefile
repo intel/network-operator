@@ -146,26 +146,61 @@ trivy-deployments: kustomize
 	$(KUSTOMIZE) build config/operator/default > $(DEPL_YAML_DIR)/operator.yaml
 	cat config/discovery/base/daemonset.yaml > $(DEPL_YAML_DIR)/discovery.yaml
 
+PKG = github.com/intel/network-operator
+GIT_INFO = $(shell git describe --tags --always HEAD)
+BUILD_DATE = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+GO111MODULE=on
+CGOFLAGS=-trimpath -tags osusergo,netgo
+GCFLAGS=all=-spectre=all -N -l
+ASMFLAGS=all=-spectre=all
+LDFLAGS=all=-s -w -X ${PKG}/internal/version.gitInfo=${GIT_INFO} -X ${PKG}/internal/version.buildDate=${BUILD_DATE}
+
+OPERATOR_BUILD_ARGS = --build-arg PKGNAME="${PKG}" \
+		--build-arg GITINFO="${GIT_INFO}" \
+		--build-arg BUILDDATE="${BUILD_DATE}" \
+		--build-arg GO111MODULE="${GO111MODULE}" \
+		--build-arg CGOFLAGS="${CGOFLAGS}" \
+		--build-arg GCFLAGS="${GCFLAGS}" \
+		--build-arg ASMFLAGS="${ASMFLAGS}" \
+		--build-arg LDFLAGS="${LDFLAGS}"
+
+DISCOVER_CGOFLAGS=$(CGOFLAGS) -mod=readonly -buildmode=pie
+DISCOVER_LDFLAGS=$(LDFLAGS) -linkmode=external -extldflags '$(shell pkg-config --static --libs-only-l libpcap libcap) -static'
+
+DISCOVER_BUILD_ARGS = --build-arg PKGNAME="${PKG}" \
+		--build-arg GITINFO="${GIT_INFO}" \
+		--build-arg BUILDDATE="${BUILD_DATE}" \
+		--build-arg GO111MODULE="${GO111MODULE}" \
+		--build-arg CGOFLAGS="${DISCOVER_CGOFLAGS}" \
+		--build-arg GCFLAGS="${GCFLAGS}" \
+		--build-arg ASMFLAGS="${ASMFLAGS}" \
+		--build-arg LDFLAGS="${DISCOVER_LDFLAGS}"
+
 ##@ Build
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager ./cmd/operator/
-	go build -o bin/discover ./cmd/discover/
+	GO111MODULE=$(GO111MODULE) go build \
+		$(CGOFLAGS) \
+		--gcflags="$(GCFLAGS)" \
+		--asmflags="$(ASMFLAGS)" \
+		--ldflags="$(LDFLAGS)" \
+		-o bin/manager ./cmd/operator/
+	GO111MODULE=$(GO111MODULE) go build \
+		$(DISCOVER_CGOFLAGS) \
+		--gcflags="$(GCFLAGS)" \
+		--asmflags="$(ASMFLAGS)" \
+		--ldflags="$(DISCOVER_LDFLAGS)" \
+		-o bin/discover ./cmd/discover/
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
-PKG = github.com/intel/network-operator
-GIT_INFO = $(shell git describe --tags --always HEAD)
-BUILD_DATE = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-DOCKER_BUILD_ARGS = --build-arg PKGNAME=${PKG} --build-arg GITINFO=${GIT_INFO} --build-arg=BUILDDATE=${BUILD_DATE}
-
 .PHONY: operator-image
 operator-image:
-	$(CONTAINER_TOOL) build --pull ${DOCKER_BUILD_ARGS} -f build/Dockerfile.operator -t ${IMG} .
+	$(CONTAINER_TOOL) build --pull ${OPERATOR_BUILD_ARGS} -f build/Dockerfile.operator -t ${IMG} .
 
 .PHONY: operator-push
 operator-push:
@@ -174,7 +209,7 @@ operator-push:
 # TODO: what would be a good image name?
 .PHONY: discover-image
 discover-image:
-	$(CONTAINER_TOOL) build --pull ${DOCKER_BUILD_ARGS} -f build/Dockerfile.linkdiscovery -t intel/intel-network-linkdiscovery:${TAG} .
+	$(CONTAINER_TOOL) build --pull ${DISCOVER_BUILD_ARGS} -f build/Dockerfile.linkdiscovery -t intel/intel-network-linkdiscovery:${TAG} .
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
