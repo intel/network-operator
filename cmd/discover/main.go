@@ -95,6 +95,13 @@ func detectLLDP(config *cmdConfig, networkConfigs map[string]*networkConfigurati
 	lldpResultChan := make(chan lldp.DiscoveryResult, len(networkConfigs))
 	timeoutctx, cancelctx := context.WithTimeout(config.ctx, config.timeout)
 
+	filterFunc := func(portDescription string) bool {
+		// Check if the port description field has the correct data in it
+		_, _, err := parseIPFromString(portDescription)
+
+		return err == nil
+	}
+
 	defer cancelctx()
 
 	for _, networkconfig := range networkConfigs {
@@ -107,7 +114,7 @@ func detectLLDP(config *cmdConfig, networkConfigs map[string]*networkConfigurati
 		wg.Add(1)
 		go func() {
 			lldpClient := lldp.NewClient(timeoutctx, networkconfig.link.Attrs().Name, *networkconfig.localHwAddr)
-			if err := lldpClient.Start(lldpResultChan); err != nil {
+			if err := lldpClient.Start(lldpResultChan, filterFunc); err != nil {
 				klog.Infof("Cannot start LLDP client: %v\n", err)
 			}
 			wg.Done()
