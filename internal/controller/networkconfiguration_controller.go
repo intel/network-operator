@@ -301,6 +301,8 @@ func updateGaudiScaleOutDaemonSet(ds *apps.DaemonSet, netconf *networkv1alpha1.N
 	ds.Name = netconf.Name
 	ds.ObjectMeta.Namespace = namespace
 
+	ds.Spec.Template.Spec.Containers[0].ImagePullPolicy = v1.PullPolicy(netconf.Spec.GaudiScaleOut.PullPolicy)
+
 	if len(netconf.Spec.NodeSelector) > 0 {
 		ds.Spec.Template.Spec.NodeSelector = netconf.Spec.NodeSelector
 	}
