@@ -6,7 +6,7 @@ spec:
   configurationType: gaudi-so
   gaudiScaleOut:
     layer: L3
-    image: intel/intel-network-linkdiscovery:1.1.0
+    image: intel/intel-network-linkdiscovery:1.1.1
     pullPolicy: IfNotPresent
   logLevel: 1
   nodeSelector:
