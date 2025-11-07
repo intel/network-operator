@@ -8,7 +8,7 @@ spec:
     layer: L3
     pfcPriorities: "11110000"
     enableLLDPAD: true
-    image: intel/intel-network-linkdiscovery:1.1.0
+    image: intel/intel-network-linkdiscovery:1.1.1
     pullPolicy: IfNotPresent
   logLevel: 1
   nodeSelector:

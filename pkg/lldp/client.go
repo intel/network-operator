@@ -70,7 +70,7 @@ func NewClient(ctx context.Context, ifacename string, hwAddr []byte) *Client {
 // Start searches on the configured interface for lldp packages and
 // pushes the optional TLV SysName and SysDescription fields of each
 // found lldp package into the given channel.
-func (l *Client) Start(resultChan chan<- DiscoveryResult) error {
+func (l *Client) Start(resultChan chan<- DiscoveryResult, portDescriptionFilter func(string) bool) error {
 	defer l.Close()
 
 	var packetSource *gopacket.PacketSource
@@ -110,6 +110,8 @@ func (l *Client) Start(resultChan chan<- DiscoveryResult) error {
 				continue
 			}
 
+			infoFound := false
+
 			dr := DiscoveryResult{InterfaceName: l.InterfaceName}
 			for _, layer := range packet.Layers() {
 				if layer.LayerType() == layers.LayerTypeLinkLayerDiscovery {
@@ -134,12 +136,26 @@ func (l *Client) Start(resultChan chan<- DiscoveryResult) error {
 					if !ok {
 						continue
 					}
+
+					if portDescriptionFilter != nil && !portDescriptionFilter(info.PortDescription) {
+						// Filter function did not match, ignore this packet
+						continue
+					}
+
 					dr.SysName = info.SysName
 					dr.SysDescription = info.SysDescription
 					dr.PortDescription = info.PortDescription
+
+					infoFound = true
 				}
 
 			}
+
+			if !infoFound {
+				// We did not find the info layer, ignore this packet
+				continue
+			}
+
 			resultChan <- dr
 			return nil
 

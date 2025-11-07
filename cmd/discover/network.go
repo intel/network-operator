@@ -213,6 +213,15 @@ func getNetworkConfigs(interfaces []string) ([]string, map[string]*networkConfig
 	return allinterfaces, links, nil
 }
 
+func parseIPFromString(portDescription string) (net.IP, *net.IPNet, error) {
+	substrings := strings.Split(portDescription, " ")
+	if len(substrings) < 2 {
+		return nil, nil, fmt.Errorf("port description field doesn't follow expected format (no-alert CIDR)")
+	}
+
+	return net.ParseCIDR(substrings[1])
+}
+
 func selectMask30L3Address(nwconfig *networkConfiguration) (*net.IP, *net.IP, error) {
 	var (
 		peerNetwork *net.IPNet
@@ -221,15 +230,9 @@ func selectMask30L3Address(nwconfig *networkConfiguration) (*net.IP, *net.IP, er
 		err         error
 	)
 
-	substrings := strings.Split(nwconfig.portDescription, " ")
-	if len(substrings) < 2 {
-		return nil, nil, fmt.Errorf("interface '%s' could not split string '%s'",
-			nwconfig.link.Attrs().Name, nwconfig.portDescription)
-	}
-
-	peeraddr, peerNetwork, err = net.ParseCIDR(substrings[1])
+	peeraddr, peerNetwork, err = parseIPFromString(nwconfig.portDescription)
 	if err != nil {
-		return nil, nil, fmt.Errorf("interface '%s' could not parse '%s': %v",
+		return nil, nil, fmt.Errorf("interface '%s' could not parse CIDR from port description '%s': %v",
 			nwconfig.link.Attrs().Name, nwconfig.portDescription, err)
 	}
 
