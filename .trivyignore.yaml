@@ -63,6 +63,11 @@ misconfigurations:
     paths:
       - discovery.yaml
 
+  - id: AVD-DS-0017
+    statement: "apt update is followed by apt source to fetch sources as required by package licenses"
+    paths:
+      - Dockerfile.linkdiscovery
+
   # No need to restrict registries yet
   - id: AVD-KSV-0032
   - id: AVD-KSV-0033

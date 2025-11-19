@@ -48,19 +48,40 @@ RUN apt-get update -y && apt-get --no-install-recommends -y install file && \
 RUN go get github.com/google/go-licenses && \
     go run github.com/google/go-licenses save ./cmd/discover/ --save_path=licenses
 
-# TODO: consider using some other base image with required libraries copied into it.
-FROM debian:stable-slim
+RUN sed -i 's/\(Types: deb\).*/\1 deb-src/' /etc/apt/sources.list.d/*.sources
+WORKDIR  /workspace/source
+RUN apt update && apt source libc6-dev libdbus-1-dev libsystemd-dev libcap-dev --download-only
 
-RUN mkdir /source
-WORKDIR /source
+# Build static version of lldpad
+FROM debian:trixie as lldpadbuilder
 
-RUN sed -i 's/\(Types: deb\).*/\1 deb-src/' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && apt-get install -y --no-install-recommends libpcap0.8 lldpad && \
-    apt source libc6-dev libdbus-1-dev libsystemd-dev libcap-dev lldpad --download-only && \
-    rm -rf /var/lib/apt/lists/*
+WORKDIR /workspace
+
+COPY lldpad_Makefile_am.patch lldpad_Makefile_am.patch
+
+RUN sed -i 's/\(Types: deb\).*/\1 deb-src/' /etc/apt/sources.list.d/*.sources && \
+    apt update && apt install --no-install-recommends -y automake libtool && \
+    apt build-dep -y lldpad
+WORKDIR /workspace/build
+RUN apt source lldpad && mv lldpad-* lldpad-source
+WORKDIR /workspace/build/lldpad-source
+RUN ./bootstrap.sh && \
+    ./configure --prefix=/usr --enable-static --disable-shared && \
+    patch -p0 < /workspace/lldpad_Makefile_am.patch && \
+    make && cp lldptool lldpad /workspace
+WORKDIR /workspace/source
+RUN apt source --download-only libnl-3-dev libconfig11 libc6-dev && \
+    cp -v /workspace/build/* . || true
+
+FROM gcr.io/distroless/static:nonroot
+WORKDIR /
 
 COPY --from=builder /workspace/discover /discover
+COPY --from=lldpadbuilder /workspace/lldpad /usr/sbin/lldpad
+COPY --from=lldpadbuilder /workspace/lldptool /usr/sbin/lldptool
 COPY --from=builder /workspace/licenses /licenses
+COPY --from=builder /workspace/source /source
+COPY --from=lldpadbuilder /workspace/source /source
 
 USER root
 

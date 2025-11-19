@@ -1,7 +1,7 @@
 image: intel/intel-network-linkdiscovery:latest
 imagePullPolicy: IfNotPresent
 name: lldpad
-command: [ "/bin/sh", "-c", "lldpad" ]
+command: [ "/usr/sbin/lldpad" ]
 resources:
   limits:
     cpu: 100m
