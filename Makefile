@@ -165,8 +165,12 @@ OPERATOR_BUILD_ARGS = --build-arg PKGNAME="${PKG}" \
 		--build-arg ASMFLAGS="${ASMFLAGS}" \
 		--build-arg LDFLAGS="${LDFLAGS}"
 
+DISCOVER_DEPENDS := $(shell pkg-config --static --libs-only-l libpcap libcap)
+
 DISCOVER_CGOFLAGS=$(CGOFLAGS) -mod=readonly -buildmode=pie
 DISCOVER_LDFLAGS=$(LDFLAGS) -linkmode=external -extldflags '$(shell pkg-config --static --libs-only-l libpcap libcap) -static'
+# discover image needs to find its own set of link dependencies
+DISCOVER_IMG_LDFLAGS=$(LDFLAGS)
 
 DISCOVER_BUILD_ARGS = --build-arg PKGNAME="${PKG}" \
 		--build-arg GITINFO="${GIT_INFO}" \
@@ -175,7 +179,7 @@ DISCOVER_BUILD_ARGS = --build-arg PKGNAME="${PKG}" \
 		--build-arg CGOFLAGS="${DISCOVER_CGOFLAGS}" \
 		--build-arg GCFLAGS="${GCFLAGS}" \
 		--build-arg ASMFLAGS="${ASMFLAGS}" \
-		--build-arg LDFLAGS="${DISCOVER_LDFLAGS}"
+		--build-arg LDFLAGS="${DISCOVER_IMG_LDFLAGS}"
 
 ##@ Build
 

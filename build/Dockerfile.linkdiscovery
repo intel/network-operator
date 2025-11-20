@@ -34,9 +34,11 @@ COPY internal/ internal/
 COPY LICENSE LICENSE
 
 # Build
-RUN CGO_ENABLED=1 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=${GO111MODULE} \
-    go build $CGOFLAGS --gcflags="$GCFLAGS" --asmflags="$ASMFLAGS" --ldflags="$LDFLAGS"  -a -o discover \
-    ./cmd/discover/
+RUN export discover_ldflags="$LDFLAGS -linkmode=external -extldflags '$(pkg-config --static --libs-only-l libpcap libcap) -static'" && \
+    echo "Linking with: $discover_ldflags" && \
+    CGO_ENABLED=1 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=${GO111MODULE} \
+    go build $CGOFLAGS --gcflags="$GCFLAGS" --asmflags="$ASMFLAGS" --ldflags="$discover_ldflags" \
+    -a -o discover ./cmd/discover/
 
 # Verify binary build specs with checksec
 ENV CHECKSEC_REF="Partial RELRO,No Canary found,NX enabled,No PIE,N/A,N/A,No Symbols,N/A,0,0"
