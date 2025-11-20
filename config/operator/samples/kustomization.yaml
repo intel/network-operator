@@ -1,0 +1,5 @@
+resources:
+- gaudi-l2.yaml
+- gaudi-l3-metrics.yaml
+- gaudi-l3-pfc-lldpad-enabled.yaml
+- gaudi-l3.yaml
