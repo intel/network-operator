@@ -1,6 +1,8 @@
 # Copyright (c) 2025 Intel Corporation
 # SPDX-License-Identifier: MIT
 
+ARG FINAL_BASE_IMAGE
+
 # Build the manager binary
 FROM golang:1.24 AS builder
 ARG TARGETOS
@@ -48,9 +50,7 @@ RUN apt-get update -y && apt-get --no-install-recommends -y install file && \
 RUN go get github.com/google/go-licenses && \
     go run github.com/google/go-licenses save ./cmd/operator/ --save_path licenses
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+FROM ${FINAL_BASE_IMAGE}
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /workspace/licenses /licenses

@@ -51,7 +51,7 @@ endif
 OPERATOR_SDK_VERSION ?= v1.37.0
 # Image URL to use all building/pushing image targets
 TAG ?= latest
-IMG ?= ${IMAGE_TAG_BASE}:${TAG}
+IMG ?= ${IMAGE_TAG_BASE}:${DOCKER_TAG}
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.31.0
 
@@ -202,9 +202,24 @@ build: manifests generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
+.PHONY: FINAL_BASE_IMAGE UBI_BASE_IMAGE operator-image-ubi discover-image-ubi
+FINAL_BASE_IMAGE ?= gcr.io/distroless/static:nonroot
+UBI_BASE_IMAGE=redhat/ubi9-micro:latest
+DOCKER_TAG ?= ${TAG}
+
+operator-image-ubi: FINAL_BASE_IMAGE=$(UBI_BASE_IMAGE)
+operator-image-ubi: DOCKER_TAG = ${TAG}-ubi
+operator-image-ubi: operator-image
+
+discover-image-ubi: FINAL_BASE_IMAGE=$(UBI_BASE_IMAGE)
+discover-image-ubi: DOCKER_TAG = ${TAG}-ubi
+discover-image-ubi: discover-image
+
 .PHONY: operator-image
 operator-image:
-	$(CONTAINER_TOOL) build --pull ${OPERATOR_BUILD_ARGS} -f build/Dockerfile.operator -t ${IMG} .
+	$(CONTAINER_TOOL) build --pull ${OPERATOR_BUILD_ARGS} \
+		--build-arg FINAL_BASE_IMAGE="${FINAL_BASE_IMAGE}" \
+		-f build/Dockerfile.operator -t ${IMG} .
 
 .PHONY: operator-push
 operator-push:
@@ -213,7 +228,9 @@ operator-push:
 # TODO: what would be a good image name?
 .PHONY: discover-image
 discover-image:
-	$(CONTAINER_TOOL) build --pull ${DISCOVER_BUILD_ARGS} -f build/Dockerfile.linkdiscovery -t intel/intel-network-linkdiscovery:${TAG} .
+	$(CONTAINER_TOOL) build --pull ${DISCOVER_BUILD_ARGS} \
+		--build-arg FINAL_BASE_IMAGE="$(FINAL_BASE_IMAGE)" \
+		-f build/Dockerfile.linkdiscovery -t intel/intel-network-linkdiscovery:${DOCKER_TAG} .
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
