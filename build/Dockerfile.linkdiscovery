@@ -90,3 +90,12 @@ COPY --from=lldpadbuilder /workspace/source /source
 USER root
 
 ENTRYPOINT ["/discover"]
+
+LABEL vendor='Intel®'
+LABEL org.opencontainers.image.source='https://github.com/intel/network-operator'
+LABEL maintainer="Intel®"
+LABEL version='devel'
+LABEL release='1'
+LABEL name='intel-network-linkdiscovery'
+LABEL summary='Intel® Network Link Discovery for Kubernetes'
+LABEL description='The Network Link Discovery provides tools and services for discovering and managing network links in Kubernetes environments.'

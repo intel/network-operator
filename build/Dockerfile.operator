@@ -57,3 +57,12 @@ COPY --from=builder /workspace/licenses /licenses
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]
+
+LABEL vendor='Intel®'
+LABEL org.opencontainers.image.source='https://github.com/intel/network-operator'
+LABEL maintainer="Intel®"
+LABEL version='devel'
+LABEL release='1'
+LABEL name='intel-network-operator'
+LABEL summary='Intel® Network Operator for Kubernetes'
+LABEL description='The Network Operator provides automatic configuration and easier use of RDMA NICs with Intel AI accelerators in Kubernetes.'
