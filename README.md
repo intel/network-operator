@@ -2,7 +2,7 @@
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/intel/network-operator/badge)](https://scorecard.dev/viewer/?uri=github.com/intel/network-operator)
 
-CAUTION: This is an beta / non-production software, do not use on production clusters.
+CAUTION: This is a beta / non-production software, do not use on production clusters.
 
 Network Operator allows automatic configuring and easier use of RDMA NICs with Intel AI accelerators.
 
@@ -197,7 +197,5 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
-##
 
 Intel, the Intel logo and Gaudi are trademarks of Intel Corporation or its subsidiaries.
