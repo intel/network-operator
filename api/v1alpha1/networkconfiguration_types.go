@@ -29,7 +29,6 @@ type NetworkClusterPolicySpec struct {
 
 	// Select which nodes the operator should target. Align with labels created by NFD.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:items:MinItems=1
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// Gaudi Scale-Out specific settings. Only valid when configuration type is 'gaudi-so'

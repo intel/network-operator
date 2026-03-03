@@ -8,6 +8,7 @@ rules:
   - ""
   resources:
   - events
+  - pods
   verbs:
   - get
   - list
@@ -15,11 +16,12 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pods
+  - serviceaccounts
   verbs:
+  - create
+  - delete
   - get
   - list
-  - watch
 - apiGroups:
   - apps
   resources:
@@ -32,15 +34,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
 - apiGroups:
   - intel.com
   resources:

@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: networkclusterpolicies.intel.com
 spec:
   group: intel.com
@@ -41,9 +41,8 @@ spec:
             description: NetworkClusterPolicySpec defines the desired state of NetworkClusterPolicy
             properties:
               configurationType:
-                description: |-
-                  Configuration type that the operator will configure to the nodes. Possible options: gaudi-so.
-                  TODO: plausible other options: host-nic
+                description: 'Configuration type that the operator will configure
+                  to the nodes. Possible options: gaudi-so.'
                 enum:
                 - gaudi-so
                 type: string
@@ -97,6 +96,8 @@ spec:
                     - Always
                     - IfNotPresent
                     type: string
+                required:
+                - layer
                 type: object
               logLevel:
                 description: LogLevel sets the operator's log level.
@@ -111,6 +112,7 @@ spec:
                 type: object
             required:
             - configurationType
+            - nodeSelector
             type: object
           status:
             description: NetworkClusterPolicyStatus defines the observed state of
