@@ -1,6 +1,6 @@
 module github.com/intel/network-operator
 
-go 1.24
+go 1.25
 
 require (
 	github.com/Wifx/gonetworkmanager/v3 v3.2.0
