@@ -493,20 +493,16 @@ func (r *NetworkClusterPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// fetch possible existing daemonset
 
-	var olderDs apps.DaemonSetList
-	if err := r.List(ctx, &olderDs, client.InNamespace(r.Namespace), client.MatchingFields{ownerKey: req.Name}); err != nil {
-		log.Error(err, "unable to list child DaemonSets")
+	ds := &apps.DaemonSet{}
+	if err := r.Get(ctx, client.ObjectKey{Name: cp.Name, Namespace: r.Namespace}, ds); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			log.Error(err, "unable to fetch DaemonSet")
 
-		return ctrl.Result{}, err
-	}
-
-	if len(olderDs.Items) == 0 {
+			return ctrl.Result{}, err
+		}
 		return r.createDaemonSet(ctx, netConfObj, log)
 	}
 
-	// Update DaemonSet
-
-	ds := &olderDs.Items[0]
 	originalDs := ds.DeepCopy()
 
 	r.updateDaemonSet(ds, netConfObj)
