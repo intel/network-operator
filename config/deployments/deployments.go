@@ -20,77 +20,34 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/yaml"
+
+	helpers "github.com/intel/network-operator/config"
 )
 
 //go:embed dranet/clusterrole.yaml
 var contentClusterRole []byte
 
 func DranetClusterRole() *rbac.ClusterRole {
-	return getClusterRole(contentClusterRole).DeepCopy()
+	return helpers.GetClusterRole(contentClusterRole).DeepCopy()
 }
 
 //go:embed dranet/clusterrolebinding.yaml
 var contentClusterRoleBinding []byte
 
 func DranetClusterRoleBinding() *rbac.ClusterRoleBinding {
-	return getClusterRoleBinding(contentClusterRoleBinding).DeepCopy()
+	return helpers.GetClusterRoleBinding(contentClusterRoleBinding).DeepCopy()
 }
 
 //go:embed dranet/serviceaccount.yaml
 var contentServiceAccount []byte
 
 func DranetServiceAccount() *core.ServiceAccount {
-	return getServiceAccount(contentServiceAccount).DeepCopy()
+	return helpers.GetServiceAccount(contentServiceAccount).DeepCopy()
 }
 
 //go:embed dranet/daemonset.yaml
 var contentDaemonSet []byte
 
 func DranetDaemonSet() *apps.DaemonSet {
-	return getDaemonSet(contentDaemonSet).DeepCopy()
-}
-
-func getClusterRole(content []byte) *rbac.ClusterRole {
-	var result rbac.ClusterRole
-
-	err := yaml.Unmarshal(content, &result)
-	if err != nil {
-		panic(err)
-	}
-
-	return &result
-}
-
-func getClusterRoleBinding(content []byte) *rbac.ClusterRoleBinding {
-	var result rbac.ClusterRoleBinding
-
-	err := yaml.Unmarshal(content, &result)
-	if err != nil {
-		panic(err)
-	}
-
-	return &result
-}
-
-func getServiceAccount(content []byte) *core.ServiceAccount {
-	var result core.ServiceAccount
-
-	err := yaml.Unmarshal(content, &result)
-	if err != nil {
-		panic(err)
-	}
-
-	return &result
-}
-
-func getDaemonSet(content []byte) *apps.DaemonSet {
-	var result apps.DaemonSet
-
-	err := yaml.Unmarshal(content, &result)
-	if err != nil {
-		panic(err)
-	}
-
-	return &result
+	return helpers.GetDaemonSet(contentDaemonSet).DeepCopy()
 }
