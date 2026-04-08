@@ -29,7 +29,8 @@ import (
 var netpolicylog = logf.Log.WithName("nicclusterpolicy-resource")
 
 const (
-	gaudiScaleOut = "gaudi-so"
+	gaudiScaleOut   = "gaudi-so"
+	hostNicScaleOut = "hostnic-so"
 )
 
 type emptyNodeSelectorError struct{}
@@ -119,13 +120,14 @@ func validateNodeSelector(nodeSelector map[string]string) error {
 }
 
 func validateSpec(s NetworkClusterPolicySpec) (admission.Warnings, error) {
-	if err := validateNodeSelector(s.NodeSelector); err != nil {
-		return nil, err
-	}
-
 	switch s.ConfigurationType {
 	case gaudiScaleOut:
+		if err := validateNodeSelector(s.NodeSelector); err != nil {
+			return nil, err
+		}
 		return nil, validateGaudiSoSpec(s.GaudiScaleOut)
+	case hostNicScaleOut:
+		return nil, nil
 	default:
 		return nil, unknownConfigurationError{}
 	}

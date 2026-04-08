@@ -52,13 +52,19 @@ type NetworkClusterPolicyReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
 	Namespace   string
+	ReqName     string
 	isOpenShift bool
+}
+
+type SubControllerInterface interface {
+	Reconcile(ctx context.Context, cp *networkv1alpha1.NetworkClusterPolicy) (ctrl.Result, error)
 }
 
 const (
 	ownerKey = ".metadata.controller"
 
-	gaudiScaleOutSelection = "gaudi-so"
+	gaudiScaleOutSelection   = "gaudi-so"
+	hostNicScaleOutSelection = "hostnic-so"
 
 	layerSelectionL2 = "L2"
 	layerSelectionL3 = "L3"
@@ -412,6 +418,8 @@ func (r *NetworkClusterPolicyReconciler) createDaemonSet(ctx context.Context, ne
 	switch cr.Spec.ConfigurationType {
 	case gaudiScaleOutSelection:
 		return r.createGaudiScaleOutDaemonset(netconf, ctx, log)
+	case hostNicScaleOutSelection:
+		return ctrl.Result{}, nil
 	default:
 		log.Info("Unknown configuration type, this shouldn't happen!", "type", cr.Spec.ConfigurationType)
 
@@ -425,6 +433,8 @@ func (r *NetworkClusterPolicyReconciler) updateDaemonSet(ds *apps.DaemonSet, net
 	switch cr.Spec.ConfigurationType {
 	case gaudiScaleOutSelection:
 		updateGaudiScaleOutDaemonSet(ds, cr, r.Namespace)
+	case hostNicScaleOutSelection:
+		// no host nic daemonset at this time
 	default:
 		panic("Unknown configuration type, this shouldn't happen!")
 	}
@@ -481,6 +491,8 @@ func (r *NetworkClusterPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 
 	log.Info("Reconcile now.")
 
+	r.ReqName = req.Name
+
 	netConfObj := createEmptyObject()
 
 	if err := r.Get(ctx, req.NamespacedName, netConfObj); err != nil {
@@ -489,6 +501,21 @@ func (r *NetworkClusterPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	cp := netConfObj.(*networkv1alpha1.NetworkClusterPolicy)
+
+	// Handle sub-controllers
+	subControllers := []SubControllerInterface{}
+
+	subControllers = append(subControllers, &HostNICReconciler{Client: r.Client, Scheme: r.Scheme, Namespace: r.Namespace, ReqName: r.ReqName})
+
+	log.Info("Running subcontrollers")
+	for _, subController := range subControllers {
+		if res, err := subController.Reconcile(ctx, cp); err != nil {
+			log.Error(err, "Sub-controller returned error")
+			return res, err
+		}
 	}
 
 	// fetch possible existing daemonset

@@ -1,0 +1,9 @@
+apiVersion: intel.com/v1alpha1
+kind: NetworkClusterPolicy
+metadata:
+  name: netconf-dranet-scale-out
+spec:
+  configurationType: hostnic-so
+  hostNicScaleOut:
+    installDranet: true
+
