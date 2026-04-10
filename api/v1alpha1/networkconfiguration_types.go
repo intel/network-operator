@@ -49,7 +49,6 @@ type GaudiScaleOutSpec struct {
 	DisableNetworkManager bool `json:"disableNetworkManager,omitempty"`
 
 	// Layer where the configuration should occur. Possible options: L2 and L3.
-	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=L2;L3
 	Layer string `json:"layer,omitempty"`
 

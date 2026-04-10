@@ -97,8 +97,6 @@ spec:
                     - Always
                     - IfNotPresent
                     type: string
-                required:
-                - layer
                 type: object
               hostNicScaleOut:
                 description: Host NIC Scale-Out specific settings, valid when configuration
