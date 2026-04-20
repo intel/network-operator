@@ -2,15 +2,14 @@
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/intel/network-operator/badge)](https://scorecard.dev/viewer/?uri=github.com/intel/network-operator)
 
-CAUTION: This is an beta / non-production software, do not use on production clusters.
-
-Network Operator allows automatic configuring and easier use of RDMA NICs with Intel AI accelerators.
+Network Operator allows automatic configuring and easier use of NICs with Intel AI accelerators.
 
 ## Description
 
-Network operator currently supports Gaudi and its integrated scale-out network interfaces.
+Network operator supports Gaudi and its integrated scale-out network interfaces
+as well as host based network interfaces.
 
-### Intel® Gaudi®
+### Intel® Gaudi® integrated NICs
 
 Intel Gaudi and its integrated NICs are supported in two modes: L2 and L3.
 
@@ -28,16 +27,20 @@ The operator will deploy configuration Pods to the worker nodes which will liste
 
 More info on the switch topology and configurations is available [here](https://docs.habana.ai/en/v1.20.0/Management_and_Monitoring/Network_Configuration/Configure_E2E_Test_in_L3.html).
 
+### Host based network interface cards
+
+Network operator uses [DRANet](https://github.com/kubernetes-sigs/dranet) to configure
+host based network interface cards.
+
 ### Future work
 
-* Enable Host-NIC use in cluster
 * Support to install Host-NIC KMD
 * Configure RDMA NICs to be used with Intel AI accelerators
 
 ### Dependencies
 
 The operator depends on following Kubernetes components:
-* Intel Gaudi base operator
+* Intel Gaudi base operator (Gaudi accelerators)
 * Node Feature Discovery
 * Cert-manager
 * Prometheus (optional)
@@ -50,7 +53,7 @@ The operator depends on following Kubernetes components:
 - kubectl version v1.31+.
 - Access to a Kubernetes v1.31+ cluster.
 
-### Deploy operator using kubectl
+### Deploy operator with Gaudi support using kubectl
 
 Images are available at [dockerhub.io](https://hub.docker.com/r/intel/intel-network-operator).
 
@@ -76,12 +79,32 @@ sample with:
 kubectl apply -f config/operator/samples/gaudi-l3.yaml
 ```
 
+### Deploy operator with host based NIC support
+
+**Install operator into the cluster:**
+
+```sh
+kubectl apply -k config/operator/default/
+```
+
+**Create instance for host NIC**
+
+```sh
+kubectl apply -f config/operator/samples/hostnic-so.yaml
+```
+
 ### Remove operator using kubectl
 
 **Delete the instances (CRs) from the cluster:**
 
 ```sh
 kubectl delete -f config/operator/samples/gaudi-l3.yaml
+```
+
+**OR**
+
+```sh
+kubectl delete -f config/operator/samples/hostnic-so.yaml
 ```
 
 **Uninstall the controller from the cluster:**
@@ -99,7 +122,7 @@ kubectl delete -f config/nfd/gaudi-device-rule.yaml
 
 See the [README for Helm installation](charts/network-operator/README.md).
 
-### Prometheus scale-out network metrics
+### Prometheus scale-out network metrics for Gaudi
 
 In order to supply scale-out network metrics to Prometheus, enable them
 in the CR by setting `networkMetrics=true`. Use for example the
@@ -146,6 +169,14 @@ kubectl delete -f config/discovery/prometheus/metrics-service.yaml
 
 The most important Network Operator CRD properties are:
 
+* `configurationType` string
+
+   Enable Gaudi network scale-out configuration with `gaudi-so` or host based NICs with `hostnic-so`.
+
+**Applicable for Gaudi Accelerators**
+
+Properties under `gaudiScaleOut`
+
 * `disableNetworkManager` boolean
 
     Disable Gaudi scale-out interfaces in NetworkManager. For nodes where NetworkManager tries
@@ -174,6 +205,15 @@ The most important Network Operator CRD properties are:
 * `networkMetrics` boolean
 
     Enable scale-out network metrics from an HTTP endpoint on the Pod. Prometheus can be configured to scrape the endpoint with [Service and ServiceMonitor objects](#prometheus-scale-out-network-metrics).
+
+**Applicable for host NIC**
+
+Properties under `hostNicScaleOut`
+
+* `installDranet` boolean
+
+    Have Network Operator automatically install DRANet in the operator's namespace.
+    If set to `false` it is assumed that the cluster admin already has DRANet set up.
 
 The full set of properties is available in the [NetworkClusterPolicy CRD definition](config/operator/crd/bases/intel.com_networkclusterpolicies.yaml).
 Examples of Network Operator CRDs are found in the [samples directory](config/operator/samples/).
