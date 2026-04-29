@@ -152,7 +152,7 @@ BUILD_DATE = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 GO111MODULE=on
 CGOFLAGS=-trimpath -tags osusergo,netgo
-GCFLAGS=all=-spectre=all -N -l
+GCFLAGS=all=-spectre=all
 ASMFLAGS=all=-spectre=all
 LDFLAGS=all=-s -w -X ${PKG}/internal/version.gitInfo=${GIT_INFO} -X ${PKG}/internal/version.buildDate=${BUILD_DATE}
 
