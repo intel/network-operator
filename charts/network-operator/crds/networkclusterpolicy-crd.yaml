@@ -116,6 +116,15 @@ spec:
                         - Always
                         - IfNotPresent
                         type: string
+                      rdmaDeviceClass:
+                        description: Device Class for DRANet RDMA resources
+                        properties:
+                          name:
+                            description: Name of the RDMA device class
+                            type: string
+                        required:
+                        - name
+                        type: object
                     type: object
                   installDranet:
                     description: |-

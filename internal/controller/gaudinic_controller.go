@@ -19,6 +19,9 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
@@ -26,13 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/diff"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/go-logr/logr"
-	"github.com/google/go-cmp/cmp"
 	networkv1alpha1 "github.com/intel/network-operator/api/v1alpha1"
 	discovery "github.com/intel/network-operator/config/discovery"
 )
@@ -460,7 +460,7 @@ func (r *GaudiNICReconciler) Reconcile(ctx context.Context, clusterPolicy *netwo
 
 	updateGaudiScaleOutDaemonSet(ds, clusterPolicy, r.Namespace)
 
-	dsDiff := cmp.Diff(originalDs.Spec.Template.Spec, ds.Spec.Template.Spec, diff.IgnoreUnset())
+	dsDiff := cmp.Diff(originalDs.Spec.Template.Spec, ds.Spec.Template.Spec, cmpopts.EquateEmpty())
 	if len(dsDiff) > 0 {
 		log.Info("DS difference", "diff", dsDiff)
 

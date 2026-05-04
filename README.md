@@ -30,7 +30,10 @@ More info on the switch topology and configurations is available [here](https://
 ### Host based network interface cards
 
 Network operator uses [DRANet](https://github.com/kubernetes-sigs/dranet) to configure
-host based network interface cards.
+host based network interface cards. Currently network cards supporting RDMA are
+requested with the [DRANet DeviceClass](config/deployments/dranet/deviceclass.yaml)
+with the name of the DeviceClass being configurable in the
+[HostNicScaleOutSpec](api/v1alpha1/networkconfiguration_types.go).
 
 ### Future work
 

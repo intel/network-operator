@@ -20,6 +20,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
+	resource "k8s.io/api/resource/v1"
 
 	helpers "github.com/intel/network-operator/config"
 )
@@ -50,4 +51,11 @@ var contentDaemonSet []byte
 
 func DranetDaemonSet() *apps.DaemonSet {
 	return helpers.GetDaemonSet(contentDaemonSet).DeepCopy()
+}
+
+//go:embed dranet/rdmadeviceclass.yaml
+var contentDeviceClass []byte
+
+func DranetRDMADeviceClass() *resource.DeviceClass {
+	return helpers.GetDeviceClass(contentDeviceClass).DeepCopy()
 }

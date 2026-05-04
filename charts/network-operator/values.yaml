@@ -40,6 +40,8 @@ config:
       install: false
       image: registry.k8s.io/networking/dranet:v1.2.0
       imagePullPolicy: IfNotPresent
+      rdmaDeviceClass:
+        name: dranet-rdma
 
 prometheus:
   labels:

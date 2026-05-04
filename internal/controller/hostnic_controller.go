@@ -22,6 +22,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
+	resource "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -173,6 +174,56 @@ func (r *HostNICReconciler) updateClusterRoleBinding(ctx context.Context, cp *ne
 	return nil
 }
 
+func (r *HostNICReconciler) updateDeviceClass(ctx context.Context, cp *networkv1alpha1.NetworkClusterPolicy) error {
+	rdc := deployments.DranetRDMADeviceClass()
+	if cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass == nil {
+		klog.Infof("No DeviceClass defined, not installing one")
+		return nil
+	}
+
+	if cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name != "" {
+		rdc.Name = cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name
+	}
+
+	var existingDC resource.DeviceClass
+	if err := r.Get(ctx, client.ObjectKey{Name: rdc.Name}, &existingDC); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			klog.Errorf("could not fetch DRANet DeviceClass: %v", err)
+			return err
+		}
+
+		if err := ctrl.SetControllerReference(cp, rdc, r.Scheme); err != nil {
+			klog.Errorf("unable to set DRANet DeviceClass controller reference: %v", err)
+			return err
+		}
+
+		if err := r.Create(ctx, rdc); err != nil {
+			klog.Errorf("unable to create DRANet DeviceClass: %v", err)
+			return err
+		}
+
+		klog.V(3).Info("Created DRANet DeviceClass")
+		return nil
+	}
+
+	// preserve all metadata, set spec to the intended one
+	rdcWithMetadata := existingDC.DeepCopy()
+	rdcWithMetadata.Spec = rdc.Spec
+
+	if len(cmp.Diff(existingDC, *rdcWithMetadata, cmpopts.EquateEmpty())) > 0 {
+		if err := r.Update(ctx, rdcWithMetadata); err != nil {
+			klog.Errorf("unable to update DRANet DeviceClass: %v", err)
+			return err
+		}
+
+		klog.V(3).Infof("Updated DRANet DeviceClass")
+	} else {
+		klog.V(3).Info("No changes to DRANet DeviceClass")
+	}
+
+	return nil
+}
+
 func (r *HostNICReconciler) modifyDranetDaemonSet(ds *apps.DaemonSet, cp *networkv1alpha1.NetworkClusterPolicy) {
 	spec := ds.Spec.Template.Spec
 	for i, container := range spec.Containers {
@@ -249,6 +300,9 @@ func (r *HostNICReconciler) Reconcile(ctx context.Context, cp *networkv1alpha1.N
 		return ctrl.Result{}, err
 	}
 	if err := r.updateServiceAccount(ctx, cp); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.updateDeviceClass(ctx, cp); err != nil {
 		return ctrl.Result{}, err
 	}
 	if err := r.updateDranetDaemonSet(ctx, cp); err != nil {

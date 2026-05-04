@@ -79,6 +79,12 @@ type GaudiScaleOutSpec struct {
 	NetworkMetrics bool `json:"networkMetrics,omitempty"`
 }
 
+// RDMA device specification
+type RDMADeviceClassSpec struct {
+	// Name of the RDMA device class
+	Name string `json:"name"`
+}
+
 // Configuration specific for DRANet
 type DranetSpec struct {
 	// Dranet image to use.
@@ -87,6 +93,9 @@ type DranetSpec struct {
 	// Pull policy for the dranet image.
 	// +kubebuilder:validation:Enum=Never;Always;IfNotPresent
 	PullPolicy string `json:"pullPolicy,omitempty"`
+
+	// Device Class for DRANet RDMA resources
+	RDMADeviceClass *RDMADeviceClassSpec `json:"rdmaDeviceClass,omitempty"`
 }
 
 // HostNicScaleOutSpec defines the desired state of HostNicScaleOut and will install

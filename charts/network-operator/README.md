@@ -16,6 +16,7 @@ The most important values are defined below:
 |config.gaudi.networkManager.disable|If NM is running on host, try to disable it for the Gaudi network interfaces|false|
 |config.hostnic.enabled|Install host NIC support for AI accelerators|false|
 |config.hostnic.dranet.install|Install DRANet to configure host NICs|false|
+|config.hostnic.dranet.rdmaDeviceClass.name|Name of the DRANet Deviceclass|dranet-rdma|
 |nfd.install|Install NFD as part of the chart|false|
 |nfd.gaudiRule|Install Gaudi NFD rules|true|
 |operator.image.repository|Operator container image path|intel/intel-network-operator|

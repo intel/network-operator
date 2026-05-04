@@ -6,4 +6,6 @@ spec:
   configurationType: hostnic-so
   hostNicScaleOut:
     installDranet: true
-
+    dranet:
+      rdmaDeviceClass:
+        name: dranet-rdma

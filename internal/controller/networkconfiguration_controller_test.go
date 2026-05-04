@@ -23,6 +23,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
+	resource "k8s.io/api/resource/v1"
 	resourceApi "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -409,6 +410,8 @@ var _ = Describe("NetworkClusterPolicy Controller", Serial, Ordered, func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: dranetName}, &crb)).To(HaveOccurred())
 			sa := core.ServiceAccount{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: dranetName, Namespace: hostnicNamespace}, &sa)).To(HaveOccurred())
+			dc := resource.DeviceClass{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: dranetName}, &dc)).To(HaveOccurred())
 			ds := apps.DaemonSet{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: dranetName, Namespace: hostnicNamespace}, &ds)).To(HaveOccurred())
 

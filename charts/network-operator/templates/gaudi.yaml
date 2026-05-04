@@ -43,13 +43,16 @@ spec:
   configurationType: hostnic-so
   hostNicScaleOut:
     installDranet: {{ .Values.config.hostnic.dranet.install }}
-{{- if .Values.config.hostnic.dranet.image }}
     dranet:
+{{- if .Values.config.hostnic.dranet.image }}
       image: {{ .Values.config.hostnic.dranet.image }}
+{{- end }}
 {{- if .Values.config.hostnic.dranet.imagePullPolicy }}
       pullPolicy: {{ .Values.config.hostnic.dranet.imagePullPolicy }}
 {{- end }}
+{{- if .Values.config.hostnic.dranet.rdmaDeviceClass }}
+      rdmaDeviceClass:
+        name: {{ .Values.config.hostnic.dranet.rdmaDeviceClass.name }}
 {{- end }}
-
 {{- end }}
 {{- end }}

@@ -18,6 +18,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
+	resource "k8s.io/api/resource/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -70,6 +71,17 @@ func GetRoleBinding(content []byte) *rbac.RoleBinding {
 
 func GetClusterRoleBinding(content []byte) *rbac.ClusterRoleBinding {
 	var result rbac.ClusterRoleBinding
+
+	err := yaml.Unmarshal(content, &result)
+	if err != nil {
+		panic(err)
+	}
+
+	return &result
+}
+
+func GetDeviceClass(content []byte) *resource.DeviceClass {
+	var result resource.DeviceClass
 
 	err := yaml.Unmarshal(content, &result)
 	if err != nil {

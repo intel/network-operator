@@ -24,13 +24,15 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
+	resource "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 const (
-	testNamespace = "foobar"
+	testNamespace   = "foobar"
+	testDeviceClass = "fooDeviceClass"
 )
 
 var _ = Describe("DRANet Controller", func() {
@@ -46,6 +48,13 @@ var _ = Describe("DRANet Controller", func() {
 			cp := &networkv1alpha1.NetworkClusterPolicy{
 				Spec: networkv1alpha1.NetworkClusterPolicySpec{
 					ConfigurationType: "hostnic-so",
+					HostNicScaleOut: networkv1alpha1.HostNicScaleOutSpec{
+						Dranet: networkv1alpha1.DranetSpec{
+							RDMADeviceClass: &networkv1alpha1.RDMADeviceClassSpec{
+								Name: testDeviceClass,
+							},
+						},
+					},
 				},
 			}
 
@@ -53,6 +62,7 @@ var _ = Describe("DRANet Controller", func() {
 			Expect(core.AddToScheme(scheme)).To(Succeed())
 			Expect(rbac.AddToScheme(scheme)).To(Succeed())
 			Expect(apps.AddToScheme(scheme)).To(Succeed())
+			Expect(resource.AddToScheme(scheme)).To(Succeed())
 			Expect(networkv1alpha1.AddToScheme(scheme)).To(Succeed())
 
 			r := HostNICReconciler{Scheme: scheme, Namespace: testNamespace}
@@ -112,6 +122,20 @@ var _ = Describe("DRANet Controller", func() {
 			updatedServiceAccount := core.ServiceAccount{}
 			Expect(r.Get(ctx, client.ObjectKey{Name: expectedServiceAccount.Name, Namespace: testNamespace}, &updatedServiceAccount)).NotTo(HaveOccurred())
 			Expect(cmp.Diff(createdServiceAccount, updatedServiceAccount, cmpopts.EquateEmpty())).To(Equal(""))
+
+			// DeviceClass
+			expectedDeviceClass := deployments.DranetRDMADeviceClass()
+			expectedDeviceClass.Name = testDeviceClass
+
+			createdDeviceClass := resource.DeviceClass{}
+			Expect(r.updateDeviceClass(ctx, cp)).NotTo(HaveOccurred())
+			Expect(r.Get(ctx, client.ObjectKey{Name: expectedDeviceClass.Name}, &createdDeviceClass)).NotTo(HaveOccurred())
+			Expect(createdDeviceClass.Name).To(Equal(testDeviceClass))
+
+			Expect(r.updateDeviceClass(ctx, cp)).NotTo(HaveOccurred())
+			updatedDeviceClass := resource.DeviceClass{}
+			Expect(r.Get(ctx, client.ObjectKey{Name: expectedDeviceClass.Name}, &updatedDeviceClass)).NotTo(HaveOccurred())
+			Expect(cmp.Diff(createdDeviceClass, updatedDeviceClass, cmpopts.EquateEmpty())).To(Equal(""))
 
 			// DaemonSet
 			expectedDaemonSet := deployments.DranetDaemonSet()
