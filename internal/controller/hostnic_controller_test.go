@@ -155,6 +155,42 @@ var _ = Describe("DRANet Controller", func() {
 			Expect(r.Get(ctx, client.ObjectKey{Name: expectedDaemonSet.Name, Namespace: testNamespace}, &updatedDaemonSet)).NotTo(HaveOccurred())
 			Expect(cmp.Diff(createdDaemonSet, updatedDaemonSet, cmpopts.EquateEmpty())).To(Equal(""))
 
+			// Deletion
+			r.removeHostNICObjects(ctx)
+
+			Expect(r.Get(ctx, client.ObjectKey{Name: expectedClusterRole.Name}, &rbac.ClusterRole{})).To(HaveOccurred())
+			Expect(r.Get(ctx, client.ObjectKey{Name: expectedClusterRoleBinding.Name}, &rbac.ClusterRoleBinding{})).To(HaveOccurred())
+			Expect(r.Get(ctx, client.ObjectKey{Name: expectedServiceAccount.Name, Namespace: testNamespace}, &core.ServiceAccount{})).To(HaveOccurred())
+			Expect(r.Get(ctx, client.ObjectKey{Name: expectedDeviceClass.Name}, &resource.DeviceClass{})).To(HaveOccurred())
+			Expect(r.Get(ctx, client.ObjectKey{Name: expectedDaemonSet.Name, Namespace: testNamespace}, &apps.DaemonSet{})).To(HaveOccurred())
+
+			// Unowned DRANet resources should not be removed by HostNIC cleanup.
+			unownedClusterRole := deployments.DranetClusterRole()
+			Expect(r.Create(ctx, unownedClusterRole)).To(Succeed())
+
+			unownedClusterRoleBinding := deployments.DranetClusterRoleBinding()
+			Expect(r.Create(ctx, unownedClusterRoleBinding)).To(Succeed())
+
+			unownedServiceAccount := deployments.DranetServiceAccount()
+			unownedServiceAccount.Namespace = testNamespace
+			Expect(r.Create(ctx, unownedServiceAccount)).To(Succeed())
+
+			unownedDeviceClass := deployments.DranetRDMADeviceClass()
+			unownedDeviceClass.Name = testDeviceClass
+			Expect(r.Create(ctx, unownedDeviceClass)).To(Succeed())
+
+			unownedDaemonSet := deployments.DranetDaemonSet()
+			unownedDaemonSet.Namespace = testNamespace
+			Expect(r.Create(ctx, unownedDaemonSet)).To(Succeed())
+
+			r.removeHostNICObjects(ctx)
+
+			Expect(r.Get(ctx, client.ObjectKey{Name: unownedClusterRole.Name}, &rbac.ClusterRole{})).NotTo(HaveOccurred())
+			Expect(r.Get(ctx, client.ObjectKey{Name: unownedClusterRoleBinding.Name}, &rbac.ClusterRoleBinding{})).NotTo(HaveOccurred())
+			Expect(r.Get(ctx, client.ObjectKey{Name: unownedServiceAccount.Name, Namespace: testNamespace}, &core.ServiceAccount{})).NotTo(HaveOccurred())
+			Expect(r.Get(ctx, client.ObjectKey{Name: unownedDeviceClass.Name}, &resource.DeviceClass{})).NotTo(HaveOccurred())
+			Expect(r.Get(ctx, client.ObjectKey{Name: unownedDaemonSet.Name, Namespace: testNamespace}, &apps.DaemonSet{})).NotTo(HaveOccurred())
+
 			// Reconciles that should not pass
 			_, err := r.Reconcile(ctx, nil)
 			Expect(err).NotTo(HaveOccurred())

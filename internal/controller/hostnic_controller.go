@@ -41,6 +41,7 @@ type HostNICReconciler struct {
 
 const (
 	dranetContainer = "dranet"
+	appName         = "network-operator-dranet"
 )
 
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;create;update;delete;watch
@@ -54,6 +55,10 @@ const (
 
 func (r *HostNICReconciler) updateClusterRole(ctx context.Context, cp *networkv1alpha1.NetworkClusterPolicy) error {
 	cr := deployments.DranetClusterRole()
+	cr.Labels = map[string]string{
+		"app":   appName,
+		"owner": r.ReqName,
+	}
 
 	var existingCR rbac.ClusterRole
 	if err := r.Get(ctx, client.ObjectKey{Name: cr.Name}, &existingCR); err != nil {
@@ -97,6 +102,10 @@ func (r *HostNICReconciler) updateClusterRole(ctx context.Context, cp *networkv1
 func (r *HostNICReconciler) updateServiceAccount(ctx context.Context, cp *networkv1alpha1.NetworkClusterPolicy) error {
 	sa := deployments.DranetServiceAccount()
 	sa.Namespace = r.Namespace
+	sa.Labels = map[string]string{
+		"app":   appName,
+		"owner": r.ReqName,
+	}
 
 	var existingSA core.ServiceAccount
 	if err := r.Get(ctx, client.ObjectKey{Name: sa.Name, Namespace: sa.Namespace}, &existingSA); err != nil {
@@ -128,6 +137,11 @@ func (r *HostNICReconciler) updateServiceAccount(ctx context.Context, cp *networ
 
 func (r *HostNICReconciler) updateClusterRoleBinding(ctx context.Context, cp *networkv1alpha1.NetworkClusterPolicy) error {
 	crb := deployments.DranetClusterRoleBinding()
+	crb.Labels = map[string]string{
+		"app":   appName,
+		"owner": r.ReqName,
+	}
+
 	for i, s := range crb.Subjects {
 		if s.Kind == rbac.ServiceAccountKind {
 			crb.Subjects[i].Namespace = r.Namespace
@@ -174,10 +188,48 @@ func (r *HostNICReconciler) updateClusterRoleBinding(ctx context.Context, cp *ne
 	return nil
 }
 
+func (r *HostNICReconciler) getDeviceClassPruned(ctx context.Context, name *string) *resource.DeviceClass {
+	var keep *resource.DeviceClass = nil
+	matchLabels := map[string]string{
+		"app":   appName,
+		"owner": r.ReqName,
+	}
+
+	dcList := resource.DeviceClassList{}
+	if err := r.List(ctx, &dcList, client.MatchingLabels(matchLabels)); err == nil {
+		for _, dc := range dcList.Items {
+			if name != nil && *name == dc.Name {
+				keep = &dc
+				continue
+			}
+			// remove other previously installed DeviceClasses
+			if err := r.Delete(ctx, &dc); err != nil {
+				klog.Warningf("Error when attempting to delete DRANet DeviceClass: %v", err)
+			}
+			if name != nil {
+				klog.V(3).Infof("Deleted previous DeviceClass %s", dc.Name)
+			}
+		}
+	}
+
+	return keep
+}
+
+func (r *HostNICReconciler) removeDeviceClass(ctx context.Context) {
+	r.getDeviceClassPruned(ctx, nil)
+	klog.V(3).Infof("Deleted DRANet DeviceClass")
+}
+
 func (r *HostNICReconciler) updateDeviceClass(ctx context.Context, cp *networkv1alpha1.NetworkClusterPolicy) error {
 	rdc := deployments.DranetRDMADeviceClass()
+	rdc.Labels = map[string]string{
+		"app":   appName,
+		"owner": r.ReqName,
+	}
+
 	if cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass == nil {
-		klog.Infof("No DeviceClass defined, not installing one")
+		r.removeDeviceClass(ctx)
+		klog.V(3).Infof("No DeviceClass defined, not installing one")
 		return nil
 	}
 
@@ -185,13 +237,8 @@ func (r *HostNICReconciler) updateDeviceClass(ctx context.Context, cp *networkv1
 		rdc.Name = cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name
 	}
 
-	var existingDC resource.DeviceClass
-	if err := r.Get(ctx, client.ObjectKey{Name: rdc.Name}, &existingDC); err != nil {
-		if client.IgnoreNotFound(err) != nil {
-			klog.Errorf("could not fetch DRANet DeviceClass: %v", err)
-			return err
-		}
-
+	existingDC := r.getDeviceClassPruned(ctx, &rdc.Name)
+	if existingDC == nil {
 		if err := ctrl.SetControllerReference(cp, rdc, r.Scheme); err != nil {
 			klog.Errorf("unable to set DRANet DeviceClass controller reference: %v", err)
 			return err
@@ -206,12 +253,12 @@ func (r *HostNICReconciler) updateDeviceClass(ctx context.Context, cp *networkv1
 		return nil
 	}
 
-	// preserve all metadata, set spec to the intended one
-	rdcWithMetadata := existingDC.DeepCopy()
-	rdcWithMetadata.Spec = rdc.Spec
+	// preserve all metadata, set spec and name to the intended one
+	updatedDC := existingDC.DeepCopy()
+	updatedDC.Spec = rdc.Spec
 
-	if len(cmp.Diff(existingDC, *rdcWithMetadata, cmpopts.EquateEmpty())) > 0 {
-		if err := r.Update(ctx, rdcWithMetadata); err != nil {
+	if len(cmp.Diff(*existingDC, *updatedDC, cmpopts.EquateEmpty())) > 0 {
+		if err := r.Update(ctx, updatedDC); err != nil {
 			klog.Errorf("unable to update DRANet DeviceClass: %v", err)
 			return err
 		}
@@ -243,6 +290,10 @@ func (r *HostNICReconciler) modifyDranetDaemonSet(ds *apps.DaemonSet, cp *networ
 
 func (r *HostNICReconciler) updateDranetDaemonSet(ctx context.Context, cp *networkv1alpha1.NetworkClusterPolicy) error {
 	ds := deployments.DranetDaemonSet()
+	ds.Labels = map[string]string{
+		"app":   appName,
+		"owner": r.ReqName,
+	}
 	ds.Namespace = r.Namespace
 	r.modifyDranetDaemonSet(ds, cp)
 
@@ -283,13 +334,85 @@ func (r *HostNICReconciler) updateDranetDaemonSet(ctx context.Context, cp *netwo
 	return nil
 }
 
-func (r *HostNICReconciler) Reconcile(ctx context.Context, cp *networkv1alpha1.NetworkClusterPolicy) (ctrl.Result, error) {
-	if cp == nil || cp.Spec.ConfigurationType != hostNicScaleOutSelection {
-		return ctrl.Result{}, nil
+func (r *HostNICReconciler) removeHostNICObjects(ctx context.Context) {
+
+	matchLabels := map[string]string{
+		"app":   appName,
+		"owner": r.ReqName,
 	}
 
-	if !cp.Spec.HostNicScaleOut.InstallDRANet {
-		klog.V(3).Info("DRANet not to be installed")
+	klog.V(3).Infof("Removing HostNIC objects for %s", matchLabels["owner"])
+
+	crList := rbac.ClusterRoleList{}
+	if err := r.List(ctx, &crList, client.MatchingLabels(matchLabels)); err == nil {
+		for _, cr := range crList.Items {
+			if err := r.Delete(ctx, &cr); err != nil {
+				if client.IgnoreNotFound(err) == nil {
+					klog.V(3).Infof("No DRANet ClusterRole to delete")
+				} else {
+					klog.Warningf("Error when attempting to delete DRANet ClusterRole: %v", err)
+				}
+			} else {
+				klog.V(3).Infof("Deleted DRANet ClusterRole")
+			}
+		}
+
+	}
+
+	crbList := rbac.ClusterRoleBindingList{}
+	if err := r.List(ctx, &crbList, client.MatchingLabels(matchLabels)); err == nil {
+		for _, crb := range crbList.Items {
+			if err := r.Delete(ctx, &crb); err != nil {
+				if client.IgnoreNotFound(err) == nil {
+					klog.V(3).Infof("No DRANet ClusterRoleBinding to delete")
+				} else {
+					klog.Warningf("Error when attempting to delete DRANet ClusterRoleBinding: %v", err)
+				}
+			} else {
+				klog.V(3).Infof("Deleted DRANet ClusterRoleBinding")
+			}
+		}
+
+	}
+
+	saList := core.ServiceAccountList{}
+	if err := r.List(ctx, &saList, client.InNamespace(r.Namespace), client.MatchingLabels(matchLabels)); err == nil {
+		for _, sa := range saList.Items {
+			if err := r.Delete(ctx, &sa); err != nil {
+				if client.IgnoreNotFound(err) == nil {
+					klog.V(3).Infof("No DRANet ServiceAccount to delete")
+				} else {
+					klog.Warningf("Error when attempting to delete DRANet ServiceAccount: %v", err)
+				}
+			} else {
+				klog.V(3).Infof("Deleted DRANet ServiceAccount")
+			}
+		}
+
+	}
+
+	r.removeDeviceClass(ctx)
+
+	dsList := apps.DaemonSetList{}
+	if err := r.List(ctx, &dsList, client.InNamespace(r.Namespace), client.MatchingLabels(matchLabels)); err == nil {
+		for _, ds := range dsList.Items {
+			if err := r.Delete(ctx, &ds); err != nil {
+				if client.IgnoreNotFound(err) == nil {
+					klog.V(3).Infof("No DRANet DaemonSet to delete")
+				} else {
+					klog.Warningf("Error when attempting to delete DRANet DaemonSet: %v", err)
+				}
+			} else {
+				klog.V(3).Infof("Deleted DRANet Daemonset")
+			}
+		}
+	}
+
+}
+
+func (r *HostNICReconciler) Reconcile(ctx context.Context, cp *networkv1alpha1.NetworkClusterPolicy) (ctrl.Result, error) {
+	if cp == nil || cp.Spec.ConfigurationType != hostNicScaleOutSelection || !cp.Spec.HostNicScaleOut.InstallDRANet {
+		r.removeHostNICObjects(ctx)
 		return ctrl.Result{}, nil
 	}
 

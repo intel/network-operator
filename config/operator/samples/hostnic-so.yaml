@@ -1,7 +1,7 @@
 apiVersion: intel.com/v1alpha1
 kind: NetworkClusterPolicy
 metadata:
-  name: netconf-dranet-scale-out
+  name: netconf-hostnic-scale-out
 spec:
   configurationType: hostnic-so
   hostNicScaleOut:
