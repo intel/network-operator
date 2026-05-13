@@ -26,6 +26,7 @@ RUN go mod download
 # Copy the go source
 COPY cmd/operator cmd/operator
 COPY api/ api/
+COPY config config
 COPY config/discovery config/discovery
 COPY internal/controller/ internal/controller/
 COPY internal/version/ internal/version/

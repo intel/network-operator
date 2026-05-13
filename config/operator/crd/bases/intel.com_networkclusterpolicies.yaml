@@ -42,9 +42,10 @@ spec:
             properties:
               configurationType:
                 description: 'Configuration type that the operator will configure
-                  to the nodes. Possible options: gaudi-so.'
+                  to the nodes. Possible options: gaudi-so, hostnic-so.'
                 enum:
                 - gaudi-so
+                - hostnic-so
                 type: string
               gaudiScaleOut:
                 description: Gaudi Scale-Out specific settings. Only valid when configuration
@@ -96,8 +97,43 @@ spec:
                     - Always
                     - IfNotPresent
                     type: string
+                type: object
+              hostNicScaleOut:
+                description: Host NIC Scale-Out specific settings, valid when configuration
+                  type is 'hostnic-so'
+                properties:
+                  dranet:
+                    description: Dranet specification,  not used if installDranet
+                      is false
+                    properties:
+                      image:
+                        description: Dranet image to use.
+                        type: string
+                      pullPolicy:
+                        description: Pull policy for the dranet image.
+                        enum:
+                        - Never
+                        - Always
+                        - IfNotPresent
+                        type: string
+                      rdmaDeviceClass:
+                        description: Device Class for DRANet RDMA resources
+                        properties:
+                          name:
+                            description: Name of the RDMA device class
+                            type: string
+                        required:
+                        - name
+                        type: object
+                    type: object
+                  installDranet:
+                    description: |-
+                      Have the Network Operator install DRANet into its namespace. If set
+                      to false, the cluster admin is expected to provision DRANet by other
+                      means.
+                    type: boolean
                 required:
-                - layer
+                - installDranet
                 type: object
               logLevel:
                 description: LogLevel sets the operator's log level.
@@ -112,8 +148,10 @@ spec:
                 type: object
             required:
             - configurationType
-            - nodeSelector
             type: object
+            x-kubernetes-validations:
+            - message: nodeSelector is required when configurationType is gaudi-so
+              rule: self.configurationType != 'gaudi-so' || has(self.nodeSelector)
           status:
             description: NetworkClusterPolicyStatus defines the observed state of
               NetworkClusterPolicy

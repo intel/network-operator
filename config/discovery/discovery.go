@@ -21,6 +21,8 @@ import (
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/yaml"
+
+	helpers "github.com/intel/network-operator/config"
 )
 
 //go:embed base/daemonset.yaml
@@ -36,57 +38,21 @@ var contentOpenshiftRoleBinding []byte
 var contentLLDPADContainer []byte
 
 func GaudiDiscoveryDaemonSet() *apps.DaemonSet {
-	return getDaemonset(contentGaudiDiscoveryDs).DeepCopy()
+	return helpers.GetDaemonSet(contentGaudiDiscoveryDs).DeepCopy()
 }
 
 func GaudiLinkDiscoveryServiceAccount() *core.ServiceAccount {
-	return getServiceAccount(contentLinkDiscoveryServiceAccount).DeepCopy()
+	return helpers.GetServiceAccount(contentLinkDiscoveryServiceAccount).DeepCopy()
 }
 
 func OpenShiftRoleBinding() *rbac.RoleBinding {
-	return getRoleBinding(contentOpenshiftRoleBinding).DeepCopy()
+	return helpers.GetRoleBinding(contentOpenshiftRoleBinding).DeepCopy()
 }
 
 func LLDPADContainer() *core.Container {
 	var result core.Container
 
 	err := yaml.Unmarshal(contentLLDPADContainer, &result)
-	if err != nil {
-		panic(err)
-	}
-
-	return &result
-}
-
-// getDaemonset unmarshalls yaml content into a DaemonSet object.
-func getDaemonset(content []byte) *apps.DaemonSet {
-	var result apps.DaemonSet
-
-	err := yaml.Unmarshal(content, &result)
-	if err != nil {
-		panic(err)
-	}
-
-	return &result
-}
-
-// getServiceAccount unmarshalls yaml content into a ServiceAccount object.
-func getServiceAccount(content []byte) *core.ServiceAccount {
-	var result core.ServiceAccount
-
-	err := yaml.Unmarshal(content, &result)
-	if err != nil {
-		panic(err)
-	}
-
-	return &result
-}
-
-// getRoleBinding unmarshalls yaml content into a RoleBinding object.
-func getRoleBinding(content []byte) *rbac.RoleBinding {
-	var result rbac.RoleBinding
-
-	err := yaml.Unmarshal(content, &result)
 	if err != nil {
 		panic(err)
 	}

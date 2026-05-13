@@ -21,18 +21,20 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // NetworkClusterPolicySpec defines the desired state of NetworkClusterPolicy
+// +kubebuilder:validation:XValidation:rule="self.configurationType != 'gaudi-so' || has(self.nodeSelector)",message="nodeSelector is required when configurationType is gaudi-so"
 type NetworkClusterPolicySpec struct {
-	// Configuration type that the operator will configure to the nodes. Possible options: gaudi-so.
-	// TODO: plausible other options: host-nic
-	// +kubebuilder:validation:Enum=gaudi-so
+	// Configuration type that the operator will configure to the nodes. Possible options: gaudi-so, hostnic-so.
+	// +kubebuilder:validation:Enum=gaudi-so;hostnic-so
 	ConfigurationType string `json:"configurationType"`
 
 	// Select which nodes the operator should target. Align with labels created by NFD.
-	// +kubebuilder:validation:Required
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// Gaudi Scale-Out specific settings. Only valid when configuration type is 'gaudi-so'
 	GaudiScaleOut GaudiScaleOutSpec `json:"gaudiScaleOut,omitempty"`
+
+	// Host NIC Scale-Out specific settings, valid when configuration type is 'hostnic-so'
+	HostNicScaleOut HostNicScaleOutSpec `json:"hostNicScaleOut,omitempty"`
 
 	// LogLevel sets the operator's log level.
 	// +kubebuilder:validation:Minimum=0
@@ -47,7 +49,6 @@ type GaudiScaleOutSpec struct {
 	DisableNetworkManager bool `json:"disableNetworkManager,omitempty"`
 
 	// Layer where the configuration should occur. Possible options: L2 and L3.
-	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=L2;L3
 	Layer string `json:"layer,omitempty"`
 
@@ -76,6 +77,37 @@ type GaudiScaleOutSpec struct {
 
 	// Enable scale-out network metrics support.
 	NetworkMetrics bool `json:"networkMetrics,omitempty"`
+}
+
+// RDMA device specification
+type RDMADeviceClassSpec struct {
+	// Name of the RDMA device class
+	Name string `json:"name"`
+}
+
+// Configuration specific for DRANet
+type DranetSpec struct {
+	// Dranet image to use.
+	Image string `json:"image,omitempty"`
+
+	// Pull policy for the dranet image.
+	// +kubebuilder:validation:Enum=Never;Always;IfNotPresent
+	PullPolicy string `json:"pullPolicy,omitempty"`
+
+	// Device Class for DRANet RDMA resources
+	RDMADeviceClass *RDMADeviceClassSpec `json:"rdmaDeviceClass,omitempty"`
+}
+
+// HostNicScaleOutSpec defines the desired state of HostNicScaleOut and will install
+// dranet, https://github.com/kubernetes-sigs/dranet/, to define interface resources
+type HostNicScaleOutSpec struct {
+	// Have the Network Operator install DRANet into its namespace. If set
+	// to false, the cluster admin is expected to provision DRANet by other
+	// means.
+	InstallDRANet bool `json:"installDranet"`
+
+	// Dranet specification,  not used if installDranet is false
+	Dranet DranetSpec `json:"dranet,omitempty"`
 }
 
 // NetworkClusterPolicyStatus defines the observed state of NetworkClusterPolicy

@@ -1,0 +1,11 @@
+apiVersion: intel.com/v1alpha1
+kind: NetworkClusterPolicy
+metadata:
+  name: netconf-hostnic-scale-out
+spec:
+  configurationType: hostnic-so
+  hostNicScaleOut:
+    installDranet: true
+    dranet:
+      rdmaDeviceClass:
+        name: dranet-rdma

@@ -1,4 +1,8 @@
 
+{{- if or .Values.config.gaudi.enabled .Values.config.hostnic.enabled }}
+{{- if and .Values.config.gaudi.enabled .Values.config.hostnic.enabled }}
+{{- fail "Either gaudi or hostnic can be enabled, but not both" }}
+{{- end }}
 {{- if .Values.config.gaudi.enabled }}
 {{- $valid := list "L2" "L3" }}
 {{- if not (has .Values.config.gaudi.mode $valid) }}
@@ -7,8 +11,10 @@
 {{- if or (lt (int .Values.config.gaudi.mtu) 1500) (gt (int .Values.config.gaudi.mtu) 9000) }}
 {{- fail "MTU must be between 1500 and 9000" }}
 {{- end }}
+{{- end}}
 apiVersion: intel.com/v1alpha1
 kind: NetworkClusterPolicy
+{{- if .Values.config.gaudi.enabled }}
 metadata:
   name: netconf-gaudi-scale-out
 spec:
@@ -29,4 +35,24 @@ spec:
 
   logLevel: {{ .Values.logLevel }}
   nodeSelector: {{- .Values.config.gaudi.nodeSelector | toYaml | nindent 4 }}
+{{- end }}
+{{- if .Values.config.hostnic.enabled }}
+metadata:
+  name: netconf-hostnic-scale-out
+spec:
+  configurationType: hostnic-so
+  hostNicScaleOut:
+    installDranet: {{ .Values.config.hostnic.dranet.install }}
+    dranet:
+{{- if .Values.config.hostnic.dranet.image }}
+      image: {{ .Values.config.hostnic.dranet.image }}
+{{- end }}
+{{- if .Values.config.hostnic.dranet.imagePullPolicy }}
+      pullPolicy: {{ .Values.config.hostnic.dranet.imagePullPolicy }}
+{{- end }}
+{{- if .Values.config.hostnic.dranet.rdmaDeviceClass }}
+      rdmaDeviceClass:
+        name: {{ .Values.config.hostnic.dranet.rdmaDeviceClass.name }}
+{{- end }}
+{{- end }}
 {{- end }}

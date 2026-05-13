@@ -29,7 +29,9 @@ import (
 var netpolicylog = logf.Log.WithName("nicclusterpolicy-resource")
 
 const (
-	gaudiScaleOut = "gaudi-so"
+	gaudiScaleOut          = "gaudi-so"
+	hostNicScaleOut        = "hostnic-so"
+	DefaultRDMADeviceClass = "dranet-rdma"
 )
 
 type emptyNodeSelectorError struct{}
@@ -48,6 +50,12 @@ type unknownConfigurationError struct{}
 
 func (e unknownConfigurationError) Error() string {
 	return "unknown error"
+}
+
+type missingDeviceClassNameError struct{}
+
+func (e missingDeviceClassNameError) Error() string {
+	return "missing device class name"
 }
 
 // SetupWebhookWithManager will setup the manager to manage the webhooks
@@ -70,6 +78,12 @@ func (r *NetworkClusterPolicy) Default() {
 		if len(r.Spec.GaudiScaleOut.Image) == 0 {
 			r.Spec.GaudiScaleOut.Image = "intel/intel-network-linkdiscovery:latest"
 		}
+	case hostNicScaleOut:
+		rdmaDeviceClass := r.Spec.HostNicScaleOut.Dranet.RDMADeviceClass
+		if rdmaDeviceClass != nil && rdmaDeviceClass.Name == "" {
+			r.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name = DefaultRDMADeviceClass
+		}
+
 	}
 }
 
@@ -118,14 +132,23 @@ func validateNodeSelector(nodeSelector map[string]string) error {
 	return nil
 }
 
-func validateSpec(s NetworkClusterPolicySpec) (admission.Warnings, error) {
-	if err := validateNodeSelector(s.NodeSelector); err != nil {
-		return nil, err
+func validateHostNicSoSpec(s HostNicScaleOutSpec) error {
+	if s.Dranet.RDMADeviceClass != nil && s.Dranet.RDMADeviceClass.Name == "" {
+		return missingDeviceClassNameError{}
 	}
 
+	return nil
+}
+
+func validateSpec(s NetworkClusterPolicySpec) (admission.Warnings, error) {
 	switch s.ConfigurationType {
 	case gaudiScaleOut:
+		if err := validateNodeSelector(s.NodeSelector); err != nil {
+			return nil, err
+		}
 		return nil, validateGaudiSoSpec(s.GaudiScaleOut)
+	case hostNicScaleOut:
+		return nil, validateHostNicSoSpec(s.HostNicScaleOut)
 	default:
 		return nil, unknownConfigurationError{}
 	}

@@ -23,6 +23,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
+	resource "k8s.io/api/resource/v1"
 	resourceApi "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -31,7 +32,7 @@ import (
 	networkv1alpha1 "github.com/intel/network-operator/api/v1alpha1"
 )
 
-var _ = Describe("NetworkClusterPolicy Controller", func() {
+var _ = Describe("NetworkClusterPolicy Controller", Serial, Ordered, func() {
 	const (
 		timeout  = time.Second * 5
 		duration = time.Second * 5
@@ -40,7 +41,7 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 
 	defaultNs := "intel-network-operator"
 
-	Context("When reconciling a resource", func() {
+	Context("When reconciling a resource", Serial, Ordered, func() {
 		const resourceName = "test-resource"
 
 		ctx := context.Background()
@@ -348,6 +349,7 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 			}, timeout, interval).Should(Succeed())
 
 			Expect(k8sClient.Delete(ctx, nicpolicy)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, ns)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, typeNamespacedName, &ds)).To(Not(Succeed()))
@@ -358,4 +360,62 @@ var _ = Describe("NetworkClusterPolicy Controller", func() {
 			}, timeout, interval).Should(Succeed())
 		})
 	})
+
+	Context("When reconciling a hostnic resource", Serial, Ordered, func() {
+		const (
+			dranetName       = "dranet"
+			hostnicName      = "test-hostnic"
+			hostnicNamespace = "test-hostnic-namespace"
+		)
+
+		ctx := context.Background()
+
+		It("Reconcile hostnic", func() {
+			hostnic := &networkv1alpha1.NetworkClusterPolicy{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "intel.com/v1alpha1",
+					Kind:       "NetworkClusterPolicy",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hostnicName,
+					Namespace: hostnicNamespace,
+				},
+				Spec: networkv1alpha1.NetworkClusterPolicySpec{
+					ConfigurationType: "hostnic-so",
+				},
+			}
+			typeNamespacedName := types.NamespacedName{
+				Name:      hostnicName,
+				Namespace: hostnicNamespace,
+			}
+			ns := &core.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: hostnicNamespace,
+				},
+			}
+
+			nicpolicy := &networkv1alpha1.NetworkClusterPolicy{}
+
+			Expect(k8sClient.Create(ctx, ns)).To(Succeed())
+			Expect(k8sClient.Create(ctx, hostnic)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, typeNamespacedName, nicpolicy)).To(Succeed())
+				g.Expect(nicpolicy.Spec.ConfigurationType).To(BeEquivalentTo("hostnic-so"))
+			}, timeout, interval).Should(Succeed())
+
+			cr := rbac.ClusterRole{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: dranetName}, &cr)).To(HaveOccurred())
+			crb := rbac.ClusterRoleBinding{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: dranetName}, &crb)).To(HaveOccurred())
+			sa := core.ServiceAccount{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: dranetName, Namespace: hostnicNamespace}, &sa)).To(HaveOccurred())
+			dc := resource.DeviceClass{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: dranetName}, &dc)).To(HaveOccurred())
+			ds := apps.DaemonSet{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: dranetName, Namespace: hostnicNamespace}, &ds)).To(HaveOccurred())
+
+		})
+	})
+
 })
