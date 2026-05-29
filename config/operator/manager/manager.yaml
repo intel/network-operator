@@ -64,7 +64,7 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
-        image: intel/intel-network-operator:1.2.0
+        image: intel/intel-network-operator:1.2.0@sha256:059dc0304b2b7bcfc110e10d6691af36e3e9ac58a04494d5fa3cd874bf5e0867
         name: manager
         env:
           - name: OPERATOR_NAMESPACE
