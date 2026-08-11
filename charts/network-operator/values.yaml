@@ -38,7 +38,7 @@ config:
     enabled: false
     dranet:
       install: false
-      image: registry.k8s.io/networking/dranet:v1.2.0
+      image: registry.k8s.io/networking/dranet:v1.4.0
       imagePullPolicy: IfNotPresent
       rdmaDeviceClass:
         name: dranet-rdma
