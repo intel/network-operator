@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ---
+# Source: dranet/templates/daemonset.yaml
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -34,67 +35,72 @@ spec:
     spec:
       hostNetwork: true
       tolerations:
-      - operator: Exists
-        effect: NoSchedule
+        - operator: Exists
+          effect: NoSchedule
       serviceAccountName: dranet
       containers:
-      - name: dranet
-        args:
-        - /dranet
-        - --v=4
-        - --hostname-override=$(NODE_NAME)
-        image: registry.k8s.io/networking/dranet:v1.2.0
-        env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        resources:
-          requests:
-            cpu: "100m"
-            memory: "50Mi"
-        securityContext:
-          privileged: true
-        readinessProbe:
-          httpGet:
-            path: /healthz
-            port: 9177
-        volumeMounts:
-        - name: device-plugin
-          mountPath: /var/lib/kubelet/plugins
-        - name: plugin-registry
-          mountPath: /var/lib/kubelet/plugins_registry
-        - name: nri-plugin
-          mountPath: /var/run/nri
-        - name: netns
-          mountPath: /var/run/netns
-          mountPropagation: HostToContainer
-        - name: infiniband
-          mountPath: /dev/infiniband
-          mountPropagation: HostToContainer
-        - name: bpf-programs
-          mountPath: /sys/fs/bpf
-          mountPropagation: HostToContainer
+        - name: dranet
+          image: "registry.k8s.io/networking/dranet:stable"
+          imagePullPolicy: IfNotPresent
+          args:
+            - /dranet
+            - --v=4
+            - --hostname-override=$(NODE_NAME)
+            - --kubelet-root-dir=/var/lib/kubelet
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 100m
+              memory: 50Mi
+          securityContext:
+            privileged: true
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 9177
+            failureThreshold: 12
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9177
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/plugins
+            - name: plugin-registry
+              mountPath: /var/lib/kubelet/plugins_registry
+            - name: nri-plugin
+              mountPath: /var/run/nri
+            - name: netns
+              mountPath: /var/run/netns
+              mountPropagation: HostToContainer
+            - name: infiniband
+              mountPath: /dev/infiniband
+              mountPropagation: HostToContainer
+            - name: bpf-programs
+              mountPath: /sys/fs/bpf
+              mountPropagation: HostToContainer
       volumes:
-      - name: device-plugin
-        hostPath:
-          path: /var/lib/kubelet/plugins
-      - name: plugin-registry
-        hostPath:
-          path: /var/lib/kubelet/plugins_registry
-      - name: nri-plugin
-        hostPath:
-          path: /var/run/nri
-      - name: netns
-        hostPath:
-          path: /var/run/netns
-      - name: infiniband
-        hostPath:
-          path: /dev/infiniband
-      - name: etc
-        hostPath:
-          path: /etc
-      - name: bpf-programs
-        hostPath:
-          path: /sys/fs/bpf
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/plugins
+        - name: plugin-registry
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry
+        - name: nri-plugin
+          hostPath:
+            path: /var/run/nri
+        - name: netns
+          hostPath:
+            path: /var/run/netns
+        - name: infiniband
+          hostPath:
+            path: /dev/infiniband
+        - name: bpf-programs
+          hostPath:
+            path: /sys/fs/bpf
 ---
