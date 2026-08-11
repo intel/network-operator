@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ---
+# Source: dranet/templates/rbac.yaml
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -21,7 +22,7 @@ roleRef:
   kind: ClusterRole
   name: dranet
 subjects:
-- kind: ServiceAccount
-  name: dranet
-  namespace: kube-system
+  - kind: ServiceAccount
+    name: dranet
+    namespace: kube-system
 ---
