@@ -103,6 +103,36 @@ func parseFlags(fs *flag.FlagSet, args []string) (options, error) {
 	return opts, nil
 }
 
+// tlsOptions returns the TLS configuration applied to both the metrics and the
+// webhook server.
+func tlsOptions(enableHTTP2 bool) []func(*tls.Config) {
+	tlsOpts := []func(*tls.Config){
+		func(cfg *tls.Config) {
+			cfg.MinVersion = tls.VersionTLS12
+			cfg.MaxVersion = tls.VersionTLS12
+			cfg.CipherSuites = []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			}
+		},
+	}
+
+	// if the enable-http2 flag is false (the default), http/2 should be disabled
+	// due to its vulnerabilities. More specifically, disabling http/2 will
+	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
+	// Rapid Reset CVEs. For more information see:
+	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
+	// - https://github.com/advisories/GHSA-4374-p667-p6c8
+	if !enableHTTP2 {
+		tlsOpts = append(tlsOpts, func(c *tls.Config) {
+			setupLog.Info("disabling http/2")
+			c.NextProtos = []string{"http/1.1"}
+		})
+	}
+
+	return tlsOpts
+}
+
 func isOpenShift() (bool, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -139,27 +169,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts.zapOptions)))
 
-	// if the enable-http2 flag is false (the default), http/2 should be disabled
-	// due to its vulnerabilities. More specifically, disabling http/2 will
-	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
-	// Rapid Reset CVEs. For more information see:
-	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
-	// - https://github.com/advisories/GHSA-4374-p667-p6c8
-	disableHTTP2 := func(c *tls.Config) {
-		setupLog.Info("disabling http/2")
-		c.NextProtos = []string{"http/1.1"}
-	}
-
-	tlsOpts := []func(*tls.Config){
-		func(cfg *tls.Config) {
-			cfg.MinVersion = tls.VersionTLS12
-			cfg.MaxVersion = tls.VersionTLS12
-			cfg.CipherSuites = []uint16{
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			}
-		},
-	}
+	tlsOpts := tlsOptions(opts.enableHTTP2)
 
 	ns := os.Getenv("OPERATOR_NAMESPACE")
 	if ns == "" {
@@ -167,10 +177,6 @@ func main() {
 	}
 
 	setupLog.Info("Using namespace:", "ns", ns)
-
-	if !opts.enableHTTP2 {
-		tlsOpts = append(tlsOpts, disableHTTP2)
-	}
 
 	webhookServer := webhook.NewServer(webhook.Options{
 		TLSOpts: tlsOpts,
