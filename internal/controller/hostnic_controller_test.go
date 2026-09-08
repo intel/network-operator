@@ -434,6 +434,113 @@ var _ = Describe("DRANet Controller", func() {
 			Expect(restored.OwnerReferences).To(Equal(installed.OwnerReferences))
 		})
 	})
+
+	Context("Verify that modified DRANet objects are restored", func() {
+		var (
+			r  *HostNICReconciler
+			cp *networkv1alpha1.NetworkClusterPolicy
+		)
+
+		BeforeEach(func() {
+			cp = hostNicPolicy("", "")
+			cp.Name = testReqName
+
+			r = newHostNICReconciler(testReqName)
+		})
+
+		It("Should restore modified cluster role rules", func() {
+			key := client.ObjectKey{Name: deployments.DranetClusterRole().Name}
+
+			Expect(r.updateClusterRole(ctx, cp)).To(Succeed())
+
+			installed := rbac.ClusterRole{}
+			Expect(r.Get(ctx, key, &installed)).To(Succeed())
+			Expect(installed.Rules).To(HaveLen(len(deployments.DranetClusterRole().Rules)))
+
+			drifted := installed.DeepCopy()
+			drifted.Rules = drifted.Rules[:1]
+			drifted.Rules[0].Verbs = []string{"get"}
+			Expect(r.Update(ctx, drifted)).To(Succeed())
+
+			Expect(r.updateClusterRole(ctx, cp)).To(Succeed())
+
+			restored := rbac.ClusterRole{}
+			Expect(r.Get(ctx, key, &restored)).To(Succeed())
+			Expect(cmp.Diff(installed.Rules, restored.Rules, cmpopts.EquateEmpty())).To(Equal(""))
+			Expect(restored.Labels).To(Equal(installed.Labels))
+			Expect(restored.OwnerReferences).To(Equal(installed.OwnerReferences))
+		})
+
+		It("Should restore a modified cluster role binding", func() {
+			key := client.ObjectKey{Name: deployments.DranetClusterRoleBinding().Name}
+
+			Expect(r.updateClusterRoleBinding(ctx, cp)).To(Succeed())
+
+			installed := rbac.ClusterRoleBinding{}
+			Expect(r.Get(ctx, key, &installed)).To(Succeed())
+			Expect(installed.Subjects).NotTo(BeEmpty())
+
+			drifted := installed.DeepCopy()
+			for i := range drifted.Subjects {
+				drifted.Subjects[i].Namespace = "wrong-namespace"
+			}
+			drifted.RoleRef.Name = "wrong-cluster-role"
+			Expect(r.Update(ctx, drifted)).To(Succeed())
+
+			Expect(r.updateClusterRoleBinding(ctx, cp)).To(Succeed())
+
+			restored := rbac.ClusterRoleBinding{}
+			Expect(r.Get(ctx, key, &restored)).To(Succeed())
+			Expect(cmp.Diff(installed.Subjects, restored.Subjects, cmpopts.EquateEmpty())).To(Equal(""))
+			Expect(cmp.Diff(installed.RoleRef, restored.RoleRef, cmpopts.EquateEmpty())).To(Equal(""))
+			Expect(restored.Labels).To(Equal(installed.Labels))
+			Expect(restored.OwnerReferences).To(Equal(installed.OwnerReferences))
+		})
+
+		It("Should restore a modified DRANet container image", func() {
+			key := client.ObjectKey{Name: deployments.DranetDaemonSet().Name, Namespace: testNamespace}
+			cp.Spec.HostNicScaleOut.Dranet.Image = "example.com/dranet:v1"
+
+			Expect(r.updateDranetDaemonSet(ctx, cp)).To(Succeed())
+
+			installed := apps.DaemonSet{}
+			Expect(r.Get(ctx, key, &installed)).To(Succeed())
+			Expect(dranetContainerIn(&installed).Image).To(Equal("example.com/dranet:v1"))
+
+			drifted := installed.DeepCopy()
+			dranetContainerIn(drifted).Image = "example.com/tampered:v0"
+			Expect(r.Update(ctx, drifted)).To(Succeed())
+
+			Expect(r.updateDranetDaemonSet(ctx, cp)).To(Succeed())
+
+			restored := apps.DaemonSet{}
+			Expect(r.Get(ctx, key, &restored)).To(Succeed())
+			Expect(dranetContainerIn(&restored).Image).To(Equal("example.com/dranet:v1"))
+			Expect(restored.Labels).To(Equal(installed.Labels))
+			Expect(restored.OwnerReferences).To(Equal(installed.OwnerReferences))
+		})
+
+		It("Should keep a modified DRANet container image the cluster policy does not set", func() {
+			key := client.ObjectKey{Name: deployments.DranetDaemonSet().Name, Namespace: testNamespace}
+
+			Expect(r.updateDranetDaemonSet(ctx, cp)).To(Succeed())
+
+			installed := apps.DaemonSet{}
+			Expect(r.Get(ctx, key, &installed)).To(Succeed())
+
+			drifted := installed.DeepCopy()
+			dranetContainerIn(drifted).Image = "example.com/tampered:v0"
+			Expect(r.Update(ctx, drifted)).To(Succeed())
+
+			Expect(r.updateDranetDaemonSet(ctx, cp)).To(Succeed())
+
+			// Only the image settings given in the cluster policy are enforced,
+			// so a modified image is not reverted to the shipped one.
+			after := apps.DaemonSet{}
+			Expect(r.Get(ctx, key, &after)).To(Succeed())
+			Expect(dranetContainerIn(&after).Image).To(Equal("example.com/tampered:v0"))
+		})
+	})
 })
 
 // newHostNICReconciler returns a HostNIC reconciler backed by an in-memory
