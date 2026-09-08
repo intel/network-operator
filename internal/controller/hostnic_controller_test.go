@@ -349,6 +349,91 @@ var _ = Describe("DRANet Controller", func() {
 			Expect(cmp.Diff(sidecar, ds.Spec.Template.Spec.Containers[1], cmpopts.EquateEmpty())).To(Equal(""))
 		})
 	})
+
+	Context("Verify DRANet DeviceClass handling", func() {
+		var (
+			r  *HostNICReconciler
+			cp *networkv1alpha1.NetworkClusterPolicy
+		)
+
+		BeforeEach(func() {
+			cp = hostNicPolicy("", "")
+			cp.Name = testReqName
+			cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass = &networkv1alpha1.RDMADeviceClassSpec{
+				Name: testDeviceClass,
+			}
+
+			r = newHostNICReconciler(testReqName)
+		})
+
+		// installedDeviceClasses returns the names of all installed DeviceClasses.
+		installedDeviceClasses := func() []string {
+			deviceClasses := resource.DeviceClassList{}
+			Expect(r.List(ctx, &deviceClasses)).To(Succeed())
+
+			names := []string{}
+			for _, dc := range deviceClasses.Items {
+				names = append(names, dc.Name)
+			}
+
+			return names
+		}
+
+		It("Should fall back to the shipped name for an unnamed device class", func() {
+			cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name = ""
+
+			Expect(r.updateDeviceClass(ctx, cp)).To(Succeed())
+			Expect(installedDeviceClasses()).To(ConsistOf(deployments.DranetRDMADeviceClass().Name))
+		})
+
+		It("Should not install a device class if none is requested", func() {
+			cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass = nil
+
+			Expect(r.updateDeviceClass(ctx, cp)).To(Succeed())
+			Expect(installedDeviceClasses()).To(BeEmpty())
+		})
+
+		It("Should remove the installed device class if it is no longer requested", func() {
+			Expect(r.updateDeviceClass(ctx, cp)).To(Succeed())
+			Expect(installedDeviceClasses()).To(ConsistOf(testDeviceClass))
+
+			cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass = nil
+
+			Expect(r.updateDeviceClass(ctx, cp)).To(Succeed())
+			Expect(installedDeviceClasses()).To(BeEmpty())
+		})
+
+		It("Should replace a renamed device class", func() {
+			Expect(r.updateDeviceClass(ctx, cp)).To(Succeed())
+
+			cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name = "renamed-device-class"
+
+			Expect(r.updateDeviceClass(ctx, cp)).To(Succeed())
+			Expect(installedDeviceClasses()).To(ConsistOf("renamed-device-class"))
+		})
+
+		It("Should restore a modified device class spec", func() {
+			Expect(r.updateDeviceClass(ctx, cp)).To(Succeed())
+
+			installed := resource.DeviceClass{}
+			Expect(r.Get(ctx, client.ObjectKey{Name: testDeviceClass}, &installed)).To(Succeed())
+			Expect(installed.Spec.Selectors).NotTo(BeEmpty())
+
+			drifted := installed.DeepCopy()
+			drifted.Spec.Selectors = nil
+			Expect(r.Update(ctx, drifted)).To(Succeed())
+
+			Expect(r.updateDeviceClass(ctx, cp)).To(Succeed())
+
+			restored := resource.DeviceClass{}
+			Expect(r.Get(ctx, client.ObjectKey{Name: testDeviceClass}, &restored)).To(Succeed())
+			Expect(cmp.Diff(installed.Spec, restored.Spec, cmpopts.EquateEmpty())).To(Equal(""))
+
+			// The metadata of the installed device class is preserved.
+			Expect(restored.Labels).To(Equal(installed.Labels))
+			Expect(restored.OwnerReferences).To(Equal(installed.OwnerReferences))
+		})
+	})
 })
 
 // newHostNICReconciler returns a HostNIC reconciler backed by an in-memory
