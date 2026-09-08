@@ -133,6 +133,27 @@ func tlsOptions(enableHTTP2 bool) []func(*tls.Config) {
 	return tlsOpts
 }
 
+// metricsOptions returns the configuration of the metrics server. The metrics
+// endpoint is enabled in 'config/default/kustomization.yaml'.
+// More info:
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/server
+// - https://book.kubebuilder.io/reference/metrics.html
+func metricsOptions(addr string, secure bool, tlsOpts []func(*tls.Config)) metricsserver.Options {
+	metricsServerOptions := metricsserver.Options{
+		BindAddress:   addr,
+		SecureServing: secure,
+		TLSOpts:       tlsOpts,
+	}
+
+	if secure {
+		// More info:
+		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/filters#WithAuthenticationAndAuthorization
+		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
+	}
+
+	return metricsServerOptions
+}
+
 func isOpenShift() (bool, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -182,25 +203,9 @@ func main() {
 		TLSOpts: tlsOpts,
 	})
 
-	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
-	// More info:
-	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/server
-	// - https://book.kubebuilder.io/reference/metrics.html
-	metricsServerOptions := metricsserver.Options{
-		BindAddress:   opts.metricsAddr,
-		SecureServing: opts.secureMetrics,
-		TLSOpts:       tlsOpts,
-	}
-
-	if opts.secureMetrics {
-		// More info:
-		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/filters#WithAuthenticationAndAuthorization
-		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
-	}
-
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		Metrics:                metricsServerOptions,
+		Metrics:                metricsOptions(opts.metricsAddr, opts.secureMetrics, tlsOpts),
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: opts.probeAddr,
 		LeaderElection:         opts.enableLeaderElection,

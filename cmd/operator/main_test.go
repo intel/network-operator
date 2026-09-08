@@ -209,6 +209,40 @@ func TestTLSOptionsIndependent(t *testing.T) {
 	}
 }
 
+func TestMetricsOptions(t *testing.T) {
+	tlsOpts := tlsOptions(false)
+
+	for _, test := range []struct {
+		name        string
+		bindAddress string
+		secure      bool
+	}{
+		{"insecure", "0", false},
+		{"secure", ":8443", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			opts := metricsOptions(test.bindAddress, test.secure, tlsOpts)
+
+			if opts.BindAddress != test.bindAddress {
+				t.Errorf("expected the bind address to be '%s', got %s", test.bindAddress, opts.BindAddress)
+			}
+
+			if opts.SecureServing != test.secure {
+				t.Errorf("expected secure serving to be %v", test.secure)
+			}
+			if (opts.FilterProvider != nil) != test.secure {
+				filterProvider := "set"
+
+				if opts.FilterProvider == nil {
+					filterProvider = "unset"
+				}
+
+				t.Errorf("expected secure serving to be %v when FilterProvider is %s", !test.secure, filterProvider)
+			}
+		})
+	}
+}
+
 // TestSchemeRegistration verifies that the scheme handed to the manager knows
 // both the built in Kubernetes types the operator deploys and its own custom
 // resource.
