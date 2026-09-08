@@ -15,8 +15,10 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"io"
+	"slices"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -132,6 +134,78 @@ func TestParseFlagsExternalFlags(t *testing.T) {
 		if fs.Lookup(name) == nil {
 			t.Errorf("expected the %q flag to be registered", name)
 		}
+	}
+}
+
+// applyTLSOptions runs every TLS option in order and returns the resulting
+// configuration.
+func applyTLSOptions(opts []func(*tls.Config)) *tls.Config {
+	cfg := &tls.Config{} //nolint:gosec // the options under test set the minimum version
+
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	return cfg
+}
+
+func TestTLSOptions(t *testing.T) {
+	expectedCiphers := []uint16{
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+	}
+
+	for name, enableHTTP2 := range map[string]bool{
+		"http/2 disabled": false,
+		"http/2 enabled":  true,
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := applyTLSOptions(tlsOptions(enableHTTP2))
+
+			if cfg.MinVersion != tls.VersionTLS12 {
+				t.Errorf("expected the minimum TLS version to be TLS 1.2, got: %#04x", cfg.MinVersion)
+			}
+
+			if cfg.MaxVersion != tls.VersionTLS12 {
+				t.Errorf("expected the maximum TLS version to be TLS 1.2, got: %#04x", cfg.MaxVersion)
+			}
+
+			if !slices.Equal(cfg.CipherSuites, expectedCiphers) {
+				t.Errorf("expected cipher suites %v, got: %v", expectedCiphers, cfg.CipherSuites)
+			}
+
+			// With http/2 disabled the negotiated protocols have to be pinned
+			// to http/1.1, otherwise the defaults of the server apply.
+			if enableHTTP2 {
+				if len(cfg.NextProtos) != 0 {
+					t.Errorf("expected no protocol restriction, got: %v", cfg.NextProtos)
+				}
+			} else {
+				if !slices.Equal(cfg.NextProtos, []string{"http/1.1"}) {
+					t.Errorf("expected the protocols to be pinned to http/1.1, got: %v", cfg.NextProtos)
+				}
+			}
+		})
+	}
+}
+
+// TestTLSOptionsIndependent verifies that the returned options do not share
+// state, as they are handed to both the webhook and the metrics server.
+func TestTLSOptionsIndependent(t *testing.T) {
+	opts := tlsOptions(false)
+
+	first := applyTLSOptions(opts)
+	first.CipherSuites = nil
+	first.NextProtos = nil
+
+	second := applyTLSOptions(opts)
+
+	if len(second.CipherSuites) == 0 {
+		t.Error("expected the cipher suites to be set on a second configuration")
+	}
+
+	if len(second.NextProtos) == 0 {
+		t.Error("expected the protocols to be set on a second configuration")
 	}
 }
 
