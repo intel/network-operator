@@ -26,6 +26,7 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	resource "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -33,6 +34,7 @@ import (
 const (
 	testNamespace   = "foobar"
 	testDeviceClass = "fooDeviceClass"
+	testReqName     = "test-policy"
 )
 
 var _ = Describe("DRANet Controller", func() {
@@ -200,6 +202,112 @@ var _ = Describe("DRANet Controller", func() {
 		})
 	})
 
+	Context("Verify hostNicScaleOut reconciliation", func() {
+		var (
+			r  *HostNICReconciler
+			cp *networkv1alpha1.NetworkClusterPolicy
+		)
+
+		BeforeEach(func() {
+			cp = hostNicPolicy("", "")
+			cp.Name = testReqName
+			cp.Spec.HostNicScaleOut.Dranet.RDMADeviceClass = &networkv1alpha1.RDMADeviceClassSpec{
+				Name: testDeviceClass,
+			}
+
+			r = newHostNICReconciler(testReqName)
+		})
+
+		// expectHostNICObjectsGone verifies that none of the DRANet objects
+		// are installed.
+		expectHostNICObjectsGone := func() {
+			for _, obj := range hostNICObjects() {
+				Expect(r.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(HaveOccurred(), "object %T", obj)
+			}
+		}
+
+		It("Should install all DRANet objects", func() {
+			expectHostNICObjectsGone()
+
+			Expect(r.Reconcile(ctx, cp)).To(Equal(ctrl.Result{}))
+
+			for _, obj := range hostNICObjects() {
+				Expect(r.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed(), "object %T", obj)
+
+				Expect(obj.GetLabels()).To(HaveKeyWithValue("app", appName), "object %T", obj)
+				Expect(obj.GetLabels()).To(HaveKeyWithValue("owner", testReqName), "object %T", obj)
+
+				Expect(obj.GetOwnerReferences()).To(HaveLen(1), "object %T", obj)
+				Expect(obj.GetOwnerReferences()[0].Name).To(Equal(testReqName), "object %T", obj)
+				Expect(obj.GetOwnerReferences()[0].Kind).To(Equal("NetworkClusterPolicy"), "object %T", obj)
+			}
+		})
+
+		It("Should not touch the installed objects on a second reconcile", func() {
+			Expect(r.Reconcile(ctx, cp)).To(Equal(ctrl.Result{}))
+
+			installed := hostNICObjects()
+			for _, obj := range installed {
+				Expect(r.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed(), "object %T", obj)
+			}
+
+			Expect(r.Reconcile(ctx, cp)).To(Equal(ctrl.Result{}))
+
+			// An unnecessary update would show up as a changed resource version.
+			for _, before := range installed {
+				after, ok := before.DeepCopyObject().(client.Object)
+				Expect(ok).To(BeTrue())
+
+				Expect(r.Get(ctx, client.ObjectKeyFromObject(after), after)).To(Succeed(), "object %T", after)
+				Expect(cmp.Diff(before, after, cmpopts.EquateEmpty())).To(Equal(""), "object %T", before)
+			}
+		})
+
+		It("Should remove the DRANet objects when the installation is disabled", func() {
+			Expect(r.Reconcile(ctx, cp)).To(Equal(ctrl.Result{}))
+
+			cp.Spec.HostNicScaleOut.InstallDRANet = false
+
+			Expect(r.Reconcile(ctx, cp)).To(Equal(ctrl.Result{}))
+			expectHostNICObjectsGone()
+		})
+
+		It("Should remove the DRANet objects when another configuration is selected", func() {
+			Expect(r.Reconcile(ctx, cp)).To(Equal(ctrl.Result{}))
+
+			cp.Spec.ConfigurationType = "gaudi-so"
+
+			Expect(r.Reconcile(ctx, cp)).To(Equal(ctrl.Result{}))
+			expectHostNICObjectsGone()
+		})
+
+		It("Should remove the DRANet objects when there is no cluster policy", func() {
+			Expect(r.Reconcile(ctx, cp)).To(Equal(ctrl.Result{}))
+
+			Expect(r.Reconcile(ctx, nil)).To(Equal(ctrl.Result{}))
+			expectHostNICObjectsGone()
+		})
+
+		It("Should keep the DRANet objects of another cluster policy", func() {
+			Expect(r.Reconcile(ctx, cp)).To(Equal(ctrl.Result{}))
+
+			// Another cluster policy sharing the cluster must not remove the
+			// objects owned by this one.
+			other := &HostNICReconciler{
+				Client:    r.Client,
+				Scheme:    r.Scheme,
+				Namespace: r.Namespace,
+				ReqName:   "other-policy",
+			}
+
+			Expect(other.Reconcile(ctx, nil)).To(Equal(ctrl.Result{}))
+
+			for _, obj := range hostNICObjects() {
+				Expect(r.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed(), "object %T", obj)
+			}
+		})
+	})
+
 	Context("Verify DRANet DaemonSet container overrides", func() {
 
 		DescribeTable("Apply the DRANet image settings of the cluster policy",
@@ -242,6 +350,46 @@ var _ = Describe("DRANet Controller", func() {
 		})
 	})
 })
+
+// newHostNICReconciler returns a HostNIC reconciler backed by an in-memory
+// client holding the given objects.
+func newHostNICReconciler(reqName string, objs ...client.Object) *HostNICReconciler {
+	scheme := runtime.NewScheme()
+	Expect(core.AddToScheme(scheme)).To(Succeed())
+	Expect(rbac.AddToScheme(scheme)).To(Succeed())
+	Expect(apps.AddToScheme(scheme)).To(Succeed())
+	Expect(resource.AddToScheme(scheme)).To(Succeed())
+	Expect(networkv1alpha1.AddToScheme(scheme)).To(Succeed())
+
+	return &HostNICReconciler{
+		Client:    fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build(),
+		Scheme:    scheme,
+		Namespace: testNamespace,
+		ReqName:   reqName,
+	}
+}
+
+// hostNICObjects returns the DRANet objects a hostnic-so reconciliation is
+// expected to install, with the name and namespace of each object filled in so
+// that they can be used as lookup keys.
+func hostNICObjects() []client.Object {
+	serviceAccount := deployments.DranetServiceAccount()
+	serviceAccount.Namespace = testNamespace
+
+	deviceClass := deployments.DranetRDMADeviceClass()
+	deviceClass.Name = testDeviceClass
+
+	daemonSet := deployments.DranetDaemonSet()
+	daemonSet.Namespace = testNamespace
+
+	return []client.Object{
+		deployments.DranetClusterRole(),
+		deployments.DranetClusterRoleBinding(),
+		serviceAccount,
+		deviceClass,
+		daemonSet,
+	}
+}
 
 // shippedDranetContainer is the DRANet container as it comes in the shipped
 // DaemonSet manifest, i.e. without any cluster policy overrides applied.
