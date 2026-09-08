@@ -154,6 +154,22 @@ func metricsOptions(addr string, secure bool, tlsOpts []func(*tls.Config)) metri
 	return metricsServerOptions
 }
 
+// operatorNamespace returns the namespace the operator deploys its workloads
+// into.
+func operatorNamespace() string {
+	ns := os.Getenv("OPERATOR_NAMESPACE")
+	if ns == "" {
+		ns = defaultOperatorNamespace
+	}
+
+	return ns
+}
+
+// webhooksEnabled reports whether the admission webhooks are to be registered.
+func webhooksEnabled() bool {
+	return os.Getenv("ENABLE_WEBHOOKS") != "false"
+}
+
 func isOpenShift() (bool, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -192,10 +208,7 @@ func main() {
 
 	tlsOpts := tlsOptions(opts.enableHTTP2)
 
-	ns := os.Getenv("OPERATOR_NAMESPACE")
-	if ns == "" {
-		ns = defaultOperatorNamespace
-	}
+	ns := operatorNamespace()
 
 	setupLog.Info("Using namespace:", "ns", ns)
 
@@ -245,7 +258,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "NetworkClusterPolicy")
 		os.Exit(1)
 	}
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+	if webhooksEnabled() {
 		if err = (&networkv1alpha1.NetworkClusterPolicy{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkClusterPolicy")
 			os.Exit(1)
