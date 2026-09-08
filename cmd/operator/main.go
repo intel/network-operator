@@ -62,6 +62,47 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+// options holds the command line configuration of the operator.
+type options struct {
+	metricsAddr          string
+	probeAddr            string
+	enableLeaderElection bool
+	secureMetrics        bool
+	enableHTTP2          bool
+	zapOptions           zap.Options
+}
+
+// parseFlags registers the operator command line flags on the given flag set
+// and parses args with it.
+func parseFlags(fs *flag.FlagSet, args []string) (options, error) {
+	opts := options{
+		zapOptions: zap.Options{
+			Development: true,
+		},
+	}
+
+	fs.StringVar(&opts.metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
+		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
+	fs.StringVar(&opts.probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	fs.BoolVar(&opts.enableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	fs.BoolVar(&opts.secureMetrics, "metrics-secure", false,
+		"If set the metrics endpoint is served securely")
+	fs.BoolVar(&opts.enableHTTP2, "enable-http2", false,
+		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+
+	opts.zapOptions.BindFlags(fs)
+
+	klog.InitFlags(fs)
+
+	if err := fs.Parse(args); err != nil {
+		return opts, err
+	}
+
+	return opts, nil
+}
+
 func isOpenShift() (bool, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -88,33 +129,15 @@ func isOpenShift() (bool, error) {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var secureMetrics bool
-	var enableHTTP2 bool
-	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
-		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&secureMetrics, "metrics-secure", false,
-		"If set the metrics endpoint is served securely")
-	flag.BoolVar(&enableHTTP2, "enable-http2", false,
-		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	opts := zap.Options{
-		Development: true,
+	opts, err := parseFlags(flag.CommandLine, os.Args[1:])
+	if err != nil {
+		setupLog.Error(err, "unable to parse command line flags")
+		os.Exit(1)
 	}
-	opts.BindFlags(flag.CommandLine)
-
-	klog.InitFlags(nil)
-
-	flag.Parse()
 
 	buildVersion.PrintBuildDetails()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts.zapOptions)))
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -145,7 +168,7 @@ func main() {
 
 	setupLog.Info("Using namespace:", "ns", ns)
 
-	if !enableHTTP2 {
+	if !opts.enableHTTP2 {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
@@ -158,12 +181,12 @@ func main() {
 	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/server
 	// - https://book.kubebuilder.io/reference/metrics.html
 	metricsServerOptions := metricsserver.Options{
-		BindAddress:   metricsAddr,
-		SecureServing: secureMetrics,
+		BindAddress:   opts.metricsAddr,
+		SecureServing: opts.secureMetrics,
 		TLSOpts:       tlsOpts,
 	}
 
-	if secureMetrics {
+	if opts.secureMetrics {
 		// More info:
 		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/filters#WithAuthenticationAndAuthorization
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
@@ -173,8 +196,8 @@ func main() {
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
+		HealthProbeBindAddress: opts.probeAddr,
+		LeaderElection:         opts.enableLeaderElection,
 		LeaderElectionID:       "9a8a7ba6.intel.com",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
