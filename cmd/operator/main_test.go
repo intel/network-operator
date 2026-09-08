@@ -16,13 +16,16 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"flag"
 	"io"
 	"os"
 	"slices"
 	"testing"
 
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 )
 
 // testFlagSet returns a flag set that reports parse errors instead of exiting
@@ -308,6 +311,60 @@ func TestWebhooksEnabled(t *testing.T) {
 			t.Error("expected the webhooks to be enabled when the variable is unset")
 		}
 	})
+}
+
+// apiGroupList builds an API group list with the given group names.
+func apiGroupList(names ...string) *meta.APIGroupList {
+	list := &meta.APIGroupList{}
+
+	for _, name := range names {
+		list.Groups = append(list.Groups, meta.APIGroup{Name: name})
+	}
+
+	return list
+}
+
+func TestHasOpenShiftGroups(t *testing.T) {
+	for name, tc := range map[string]struct {
+		groups   *meta.APIGroupList
+		expected bool
+	}{
+		"nil list":          {nil, false},
+		"empty list":        {apiGroupList(), false},
+		"vanilla":           {apiGroupList("", "apps", "rbac.authorization.k8s.io"), false},
+		"route group":       {apiGroupList("apps", "route.openshift.io"), true},
+		"security group":    {apiGroupList("apps", "security.openshift.io"), true},
+		"both groups":       {apiGroupList("route.openshift.io", "security.openshift.io"), true},
+		"unrelated suffix":  {apiGroupList("apps.openshift.io"), false},
+		"similar core name": {apiGroupList("route.openshift.io.example.com"), false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := hasOpenShiftGroups(tc.groups); got != tc.expected {
+				t.Errorf("expected %t, got: %t", tc.expected, got)
+			}
+		})
+	}
+}
+
+// TestIsOpenShiftOutsideCluster verifies that the OpenShift detection reports
+// the failure to reach a cluster instead of silently claiming a vanilla
+// Kubernetes environment.
+func TestIsOpenShiftOutsideCluster(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	t.Setenv("KUBERNETES_SERVICE_PORT", "")
+
+	isInOpenShift, err := isOpenShift()
+	if err == nil {
+		t.Fatal("expected an error when running outside a cluster")
+	}
+
+	if !errors.Is(err, rest.ErrNotInCluster) {
+		t.Errorf("expected an ErrNotInCluster error, got: %v", err)
+	}
+
+	if isInOpenShift {
+		t.Error("expected the OpenShift detection to fail closed")
+	}
 }
 
 // TestSchemeRegistration verifies that the scheme handed to the manager knows

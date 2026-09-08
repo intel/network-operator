@@ -25,6 +25,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/klog/v2"
 
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -170,6 +171,22 @@ func webhooksEnabled() bool {
 	return os.Getenv("ENABLE_WEBHOOKS") != "false"
 }
 
+// hasOpenShiftGroups reports whether the given API group list contains an API
+// group only served by OpenShift.
+func hasOpenShiftGroups(apiGroups *meta.APIGroupList) bool {
+	if apiGroups == nil {
+		return false
+	}
+
+	for _, group := range apiGroups.Groups {
+		if slices.Contains(openShiftGroups, group.Name) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func isOpenShift() (bool, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -186,13 +203,7 @@ func isOpenShift() (bool, error) {
 		return false, err
 	}
 
-	for _, group := range apiGroups.Groups {
-		if slices.Contains(openShiftGroups, group.Name) {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return hasOpenShiftGroups(apiGroups), nil
 }
 
 func main() {
