@@ -199,4 +199,79 @@ var _ = Describe("DRANet Controller", func() {
 
 		})
 	})
+
+	Context("Verify DRANet DaemonSet container overrides", func() {
+
+		DescribeTable("Apply the DRANet image settings of the cluster policy",
+			func(image, pullPolicy string, expectedImage string, expectedPullPolicy core.PullPolicy) {
+				r := HostNICReconciler{}
+				ds := deployments.DranetDaemonSet()
+
+				r.modifyDranetDaemonSet(ds, hostNicPolicy(image, pullPolicy))
+
+				container := dranetContainerIn(ds)
+				Expect(container).NotTo(BeNil())
+				Expect(container.Image).To(Equal(expectedImage))
+				Expect(container.ImagePullPolicy).To(Equal(expectedPullPolicy))
+			},
+			Entry("keeps the shipped values when nothing is set",
+				"", "", shippedDranetContainer.Image, shippedDranetContainer.ImagePullPolicy),
+			Entry("overrides the image only",
+				"example.com/dranet:v1", "", "example.com/dranet:v1", shippedDranetContainer.ImagePullPolicy),
+			Entry("overrides the pull policy only",
+				"", "Always", shippedDranetContainer.Image, core.PullAlways),
+			Entry("overrides both the image and the pull policy",
+				"example.com/dranet:v1", "Never", "example.com/dranet:v1", core.PullNever),
+		)
+
+		It("Should leave containers other than DRANet alone", func() {
+			r := HostNICReconciler{}
+			ds := deployments.DranetDaemonSet()
+
+			sidecar := core.Container{
+				Name:            "sidecar",
+				Image:           "example.com/sidecar:v2",
+				ImagePullPolicy: core.PullNever,
+			}
+			ds.Spec.Template.Spec.Containers = append(ds.Spec.Template.Spec.Containers, sidecar)
+
+			r.modifyDranetDaemonSet(ds, hostNicPolicy("example.com/dranet:v1", "Always"))
+
+			Expect(ds.Spec.Template.Spec.Containers).To(HaveLen(2))
+			Expect(cmp.Diff(sidecar, ds.Spec.Template.Spec.Containers[1], cmpopts.EquateEmpty())).To(Equal(""))
+		})
+	})
 })
+
+// shippedDranetContainer is the DRANet container as it comes in the shipped
+// DaemonSet manifest, i.e. without any cluster policy overrides applied.
+var shippedDranetContainer = *dranetContainerIn(deployments.DranetDaemonSet())
+
+// dranetContainerIn returns the DRANet container of the given DaemonSet, or nil
+// if the DaemonSet does not have one.
+func dranetContainerIn(ds *apps.DaemonSet) *core.Container {
+	for i := range ds.Spec.Template.Spec.Containers {
+		if ds.Spec.Template.Spec.Containers[i].Name == dranetContainer {
+			return &ds.Spec.Template.Spec.Containers[i]
+		}
+	}
+
+	return nil
+}
+
+// hostNicPolicy returns a hostnic-so cluster policy with the given DRANet
+// image overrides.
+func hostNicPolicy(image, pullPolicy string) *networkv1alpha1.NetworkClusterPolicy {
+	return &networkv1alpha1.NetworkClusterPolicy{
+		Spec: networkv1alpha1.NetworkClusterPolicySpec{
+			ConfigurationType: "hostnic-so",
+			HostNicScaleOut: networkv1alpha1.HostNicScaleOutSpec{
+				InstallDRANet: true,
+				Dranet: networkv1alpha1.DranetSpec{
+					Image:      image,
+					PullPolicy: pullPolicy,
+				},
+			},
+		},
+	}
+}
