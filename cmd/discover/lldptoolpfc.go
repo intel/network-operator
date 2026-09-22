@@ -51,7 +51,7 @@ func VerifyPFCArgument(pfc string) (string, error) {
 	strs := strings.Split(strings.TrimSpace(pfc), ",")
 
 	if len(strs) == 1 && (strs[0] == "" || strs[0] == pfcDisable) {
-		return "", nil
+		return strs[0], nil
 	}
 
 	if len(strs) > 8 {
