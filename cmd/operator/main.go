@@ -187,12 +187,9 @@ func hasOpenShiftGroups(apiGroups *meta.APIGroupList) bool {
 	return false
 }
 
-func isOpenShift() (bool, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return false, err
-	}
-
+// isOpenShift reports whether the cluster reachable with the given
+// configuration serves an API group only found in OpenShift.
+func isOpenShift(config *rest.Config) (bool, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return false, err
@@ -227,7 +224,9 @@ func main() {
 		TLSOpts: tlsOpts,
 	})
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	cfg := ctrl.GetConfigOrDie()
+
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsOptions(opts.metricsAddr, opts.secureMetrics, tlsOpts),
 		WebhookServer:          webhookServer,
@@ -251,7 +250,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	isInOpenShift, err := isOpenShift()
+	isInOpenShift, err := isOpenShift(cfg)
 	if err != nil {
 		setupLog.Error(err, "unable to check if running in OpenShift")
 		os.Exit(1)
