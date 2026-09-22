@@ -529,6 +529,27 @@ func TestCmdRunInterfaceErrors(t *testing.T) {
 	}
 }
 
+func TestCmdRunMetricsFailure(t *testing.T) {
+	if stat, err := os.Stat(nfdFeatureDir); err == nil && stat.IsDir() {
+		t.Skipf("'%s' exists on this host, not writing to it", nfdFeatureDir)
+	}
+
+	fakeGaudiEnvironment(t)
+
+	// a metrics server that cannot be started stops the idling
+	config := &cmdConfig{
+		ctx:                context.Background(),
+		mode:               L2,
+		configure:          true,
+		keepRunning:        true,
+		metricsBindAddress: "127.0.0.1:-1",
+	}
+
+	if err := cmdRun(config); err == nil {
+		t.Error("cmdRun should have failed for a failing metrics server")
+	}
+}
+
 func TestMainCommand(t *testing.T) {
 	restoreGlobals(t)
 
