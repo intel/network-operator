@@ -135,6 +135,11 @@ func TestWriteGaudiNetErrors(t *testing.T) {
 }
 
 func TestGaudiNetMarshalErrors(t *testing.T) {
+	origJsonMarshal := JsonMarshal
+	t.Cleanup(func() {
+		JsonMarshal = origJsonMarshal
+	})
+
 	JsonMarshal = func(v any) ([]byte, error) {
 		return nil, fmt.Errorf("error")
 	}
