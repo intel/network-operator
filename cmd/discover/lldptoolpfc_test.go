@@ -94,3 +94,31 @@ func TestEnablePFC(t *testing.T) {
 		t.Errorf("%s disabling returned success when it should not have", lldpBinary)
 	}
 }
+
+func TestAllPFC(t *testing.T) {
+	netConfs := getFakeNetworkDataConfigs()
+
+	lldpBinary = lldpBinarySuccess
+	if err := LookupLLDPTool(); err != nil {
+		t.Errorf("lldp binary '%s' not found at path '%s': %v", lldpBinary, os.Getenv("PATH"), err)
+	}
+
+	if err := EnableAllPFC("1,2", netConfs); err != nil {
+		t.Errorf("enabling PFC on all interfaces failed: %v", err)
+	}
+	if err := DisableAllPFC(netConfs); err != nil {
+		t.Errorf("disabling PFC on all interfaces failed: %v", err)
+	}
+
+	lldpBinary = lldpBinaryFailure
+	if err := LookupLLDPTool(); err != nil {
+		t.Errorf("lldp binary '%s' not found at path '%s': %v", lldpBinary, os.Getenv("PATH"), err)
+	}
+
+	if err := EnableAllPFC("1,2", netConfs); err == nil {
+		t.Error("enabling PFC on all interfaces returned success when it should not have")
+	}
+	if err := DisableAllPFC(netConfs); err == nil {
+		t.Error("disabling PFC on all interfaces returned success when it should not have")
+	}
+}
