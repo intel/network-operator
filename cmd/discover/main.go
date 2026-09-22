@@ -319,8 +319,9 @@ func cmdRun(config *cmdConfig) error {
 		case <-term:
 			klog.Infof("Exited")
 		case err := <-metrics:
-			klog.Fatalf("Metrics server returned: %v", err)
-			return err
+			// return instead of exiting, so that the interfaces are
+			// restored by the cleanup deferred above
+			return fmt.Errorf("Metrics server returned: %v", err)
 		}
 
 	}
