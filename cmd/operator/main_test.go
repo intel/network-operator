@@ -16,9 +16,11 @@ package main
 
 import (
 	"crypto/tls"
-	"errors"
+	"encoding/json"
 	"flag"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"slices"
 	"testing"
@@ -346,20 +348,93 @@ func TestHasOpenShiftGroups(t *testing.T) {
 	}
 }
 
-// TestIsOpenShiftOutsideCluster verifies that the OpenShift detection reports
-// the failure to reach a cluster instead of silently claiming a vanilla
-// Kubernetes environment.
-func TestIsOpenShiftOutsideCluster(t *testing.T) {
-	t.Setenv("KUBERNETES_SERVICE_HOST", "")
-	t.Setenv("KUBERNETES_SERVICE_PORT", "")
+// writeDiscoveryResponse answers a discovery request in the unaggregated
+// discovery format, which is what an API server without support for aggregated
+// discovery responds with.
+func writeDiscoveryResponse(t *testing.T, w http.ResponseWriter, body any) {
+	t.Helper()
 
-	isInOpenShift, err := isOpenShift()
-	if err == nil {
-		t.Fatal("expected an error when running outside a cluster")
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		t.Errorf("unable to write the discovery response: %v", err)
+	}
+}
+
+// discoveryServer starts an HTTP server serving the discovery endpoints of an
+// API server that has the given API groups, and returns a configuration
+// pointing at it.
+func discoveryServer(t *testing.T, groups ...string) *rest.Config {
+	t.Helper()
+
+	mux := http.NewServeMux()
+
+	// The core group is served separately from the named ones.
+	mux.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
+		writeDiscoveryResponse(t, w, &meta.APIVersions{Versions: []string{"v1"}})
+	})
+
+	mux.HandleFunc("/apis", func(w http.ResponseWriter, r *http.Request) {
+		writeDiscoveryResponse(t, w, apiGroupList(groups...))
+	})
+
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	return &rest.Config{Host: server.URL}
+}
+
+func TestIsOpenShift(t *testing.T) {
+	for name, tc := range map[string]struct {
+		groups   []string
+		expected bool
+	}{
+		"vanilla":   {[]string{"apps", "rbac.authorization.k8s.io"}, false},
+		"openshift": {[]string{"apps", "route.openshift.io", "security.openshift.io"}, true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			isInOpenShift, err := isOpenShift(discoveryServer(t, tc.groups...))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if isInOpenShift != tc.expected {
+				t.Errorf("expected %t, got: %t", tc.expected, isInOpenShift)
+			}
+		})
+	}
+}
+
+// TestIsOpenShiftClientError verifies that a configuration the discovery client
+// cannot be built from is reported instead of being taken for a vanilla
+// Kubernetes environment.
+func TestIsOpenShiftClientError(t *testing.T) {
+	config := &rest.Config{
+		Host:            "https://127.0.0.1:6443",
+		TLSClientConfig: rest.TLSClientConfig{CAData: []byte("not a certificate")},
 	}
 
-	if !errors.Is(err, rest.ErrNotInCluster) {
-		t.Errorf("expected an ErrNotInCluster error, got: %v", err)
+	isInOpenShift, err := isOpenShift(config)
+	if err == nil {
+		t.Fatal("expected an error for an unusable CA bundle")
+	}
+
+	if isInOpenShift {
+		t.Error("expected the OpenShift detection to fail closed")
+	}
+}
+
+// TestIsOpenShiftDiscoveryError verifies that an API server that cannot be
+// queried for its API groups is reported as well.
+func TestIsOpenShiftDiscoveryError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "no discovery for you", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	isInOpenShift, err := isOpenShift(&rest.Config{Host: server.URL})
+	if err == nil {
+		t.Fatal("expected an error for a failing discovery request")
 	}
 
 	if isInOpenShift {
