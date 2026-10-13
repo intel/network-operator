@@ -67,7 +67,7 @@ func GenerateGaudiNet(networkConfigs map[string]*networkConfiguration) ([]byte, 
 
 	gaudinetJSON, err := JsonMarshal(gaudinet)
 	if err != nil {
-		return nil, fmt.Errorf("Could not marshal json: %v", err)
+		return nil, fmt.Errorf("could not marshal json: %v", err)
 	}
 	gaudinetJSON = append(gaudinetJSON, '\n')
 

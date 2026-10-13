@@ -132,7 +132,7 @@ func getModuleIds() (map[string]string, error) {
 func newNetworkConfiguration(ifname string, moduleId string) (*networkConfiguration, error) {
 	link, err := networkLink.LinkByName(ifname)
 	if err != nil {
-		return nil, fmt.Errorf("Link '%s' not found: %v", ifname, err)
+		return nil, fmt.Errorf("link '%s' not found: %v", ifname, err)
 	}
 
 	return &networkConfiguration{
@@ -175,13 +175,13 @@ func getNetworkConfigs(interfaces []string) ([]string, map[string]*networkConfig
 
 		devicesymlinktarget, err := filepath.EvalSymlinks(p)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Expected '%s' to be a symlink: %v", p, err)
+			return nil, nil, fmt.Errorf("expected '%s' to be a symlink: %v", p, err)
 		}
 
 		netdevicepattern := filepath.Join(devicesymlinktarget, netDevicePattern)
 		netdevices, err := filepath.Glob(netdevicepattern)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Could not find network device files: %v", err)
+			return nil, nil, fmt.Errorf("could not find network device files: %v", err)
 		}
 
 		for _, n := range netdevices {
@@ -261,7 +261,7 @@ func logResults(config *cmdConfig, networkConfigs map[string]*networkConfigurati
 		} else {
 			for _, addr := range addrs {
 				str += addr.IPNet.String()
-				if nwconfig.localAddr != nil && addr.IPNet.IP.Equal(*nwconfig.localAddr) {
+				if nwconfig.localAddr != nil && addr.IP.Equal(*nwconfig.localAddr) {
 					str += "(matches lldp)"
 				}
 				str += " "
@@ -510,7 +510,7 @@ func configureInterfaces(networkConfigs map[string]*networkConfiguration) (int, 
 		foundExisting := false
 
 		for _, addr := range addrs {
-			if nwconfig.localAddr.Equal(addr.IPNet.IP) {
+			if nwconfig.localAddr.Equal(addr.IP) {
 				klog.Infof("Interface '%s' already configured with address %s",
 					ifname, addr.IPNet.String())
 
