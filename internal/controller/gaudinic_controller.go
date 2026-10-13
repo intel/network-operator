@@ -142,7 +142,7 @@ func (r *GaudiNICReconciler) createOpenShiftCollateral(ctx context.Context, log 
 
 	sa := discovery.GaudiLinkDiscoveryServiceAccount()
 	sa.Name = serviceAccountName
-	sa.ObjectMeta.Namespace = r.Namespace
+	sa.Namespace = r.Namespace
 
 	if err := ctrl.SetControllerReference(parent, sa, r.Scheme); err != nil {
 		log.Error(err, "unable to set controller reference (service account)")
@@ -162,7 +162,7 @@ func (r *GaudiNICReconciler) createOpenShiftCollateral(ctx context.Context, log 
 
 	rb := discovery.OpenShiftRoleBinding()
 	rb.Name = serviceAccountName + "-rb"
-	rb.ObjectMeta.Namespace = r.Namespace
+	rb.Namespace = r.Namespace
 	rb.Subjects = []rbac.Subject{
 		{
 			Kind:      "ServiceAccount",
@@ -288,7 +288,7 @@ func delMetricsPortIfExists(ds *apps.DaemonSet) {
 
 func updateGaudiScaleOutDaemonSet(ds *apps.DaemonSet, netconf *networkv1alpha1.NetworkClusterPolicy, namespace string) {
 	ds.Name = netconf.Name
-	ds.ObjectMeta.Namespace = namespace
+	ds.Namespace = namespace
 
 	ds.Spec.Template.Spec.Containers[0].ImagePullPolicy = v1.PullPolicy(netconf.Spec.GaudiScaleOut.PullPolicy)
 

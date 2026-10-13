@@ -78,13 +78,13 @@ func sanitizeInput(config *cmdConfig) error {
 	case L2:
 		config.mode = L2
 	default:
-		return fmt.Errorf("Invalid mode '%s'", config.mode)
+		return fmt.Errorf("invalid mode '%s'", config.mode)
 	}
 
 	var err error
 	config.pfc, err = VerifyPFCArgument(config.pfc)
 	if err != nil {
-		return fmt.Errorf("Invalid PFC configuration: %v", err)
+		return fmt.Errorf("invalid PFC configuration: %v", err)
 	}
 
 	return nil
@@ -148,7 +148,7 @@ func preCleanups(config *cmdConfig) error {
 
 	if config.networkd != "" {
 		if err := os.MkdirAll(config.networkd, 0744); err != nil {
-			return fmt.Errorf("Cannot create systemd-networkd directory: %v", err)
+			return fmt.Errorf("cannot create systemd-networkd directory: %v", err)
 		}
 		klog.Infof("Created systemd-networkd directory %s", config.networkd)
 	}
@@ -164,7 +164,7 @@ func initializeInterfaces(config *cmdConfig, networkConfigs map[string]*networkC
 	interfacesSetMTU(networkConfigs, config.mtu)
 
 	if err := removeExistingIPs(networkConfigs); err != nil {
-		return fmt.Errorf("Failed to remove any existing IPs from interfaces: %+v", err)
+		return fmt.Errorf("failed to remove any existing IPs from interfaces: %+v", err)
 	}
 
 	return nil
@@ -173,13 +173,13 @@ func initializeInterfaces(config *cmdConfig, networkConfigs map[string]*networkC
 func writeL3Configuration(config *cmdConfig, networkConfigs map[string]*networkConfiguration) error {
 	if config.gaudinetfile != "" {
 		if err := WriteGaudiNet(config.gaudinetfile, networkConfigs); err != nil {
-			klog.Errorf("Error: %v\n", err)
+			klog.Errorf("error: %v", err)
 		}
 	}
 
 	if config.networkd != "" {
 		if _, err := WriteSystemdNetworkd(config.networkd, networkConfigs); err != nil {
-			return fmt.Errorf("Could not create systemd-networkd configuration files: %v\n", err)
+			return fmt.Errorf("could not create systemd-networkd configuration files: %v", err)
 		}
 	}
 
@@ -218,12 +218,12 @@ func cmdRun(config *cmdConfig) error {
 	}
 
 	if err := preCleanups(config); err != nil {
-		return fmt.Errorf("Failed to pre-cleanup: %v", err)
+		return fmt.Errorf("failed to pre-cleanup: %v", err)
 	}
 
 	if config.pfc != "" {
 		if err := LookupLLDPTool(); err != nil {
-			return fmt.Errorf("Could not find lldptool: %v", err)
+			return fmt.Errorf("could not find lldptool: %v", err)
 		}
 	}
 
@@ -237,18 +237,18 @@ func cmdRun(config *cmdConfig) error {
 		return err
 	}
 	if len(networkConfigs) == 0 {
-		return fmt.Errorf("No interfaces found")
+		return fmt.Errorf("no interfaces found")
 	}
 
 	if config.disableNM {
 		nmapi, err := nm.NewNetworkManager()
 		if err != nil {
-			return fmt.Errorf("Failed to create NetworkManager: %v", err)
+			return fmt.Errorf("failed to create NetworkManager: %v", err)
 		}
 
 		err = nm.DisableNetworkManagerForInterfaces(nmapi, allinterfaces)
 		if err != nil {
-			return fmt.Errorf("Failed to disable interfaces in NetworkManager: %v", err)
+			return fmt.Errorf("failed to disable interfaces in NetworkManager: %v", err)
 		}
 	}
 
@@ -265,7 +265,7 @@ func cmdRun(config *cmdConfig) error {
 		if config.configure && foundpeers {
 			numConfigured, numTotal := configureInterfaces(networkConfigs)
 			if numConfigured < numTotal {
-				return fmt.Errorf("Not all interfaces were configured (%d/%d).", numConfigured, numTotal)
+				return fmt.Errorf("not all interfaces were configured (%d/%d)", numConfigured, numTotal)
 			}
 			klog.Infof("Configured %d of %d interfaces\n", numConfigured, numTotal)
 		}
@@ -295,7 +295,7 @@ func cmdRun(config *cmdConfig) error {
 		}
 
 		if err != nil {
-			return fmt.Errorf("Failed to configure PFC: %v", err)
+			return fmt.Errorf("failed to configure PFC: %v", err)
 		}
 	}
 
@@ -304,7 +304,7 @@ func cmdRun(config *cmdConfig) error {
 			content := nfdScaleOutReadyLabel + "\n"
 
 			if err := os.WriteFile(nfdLabelFile, []byte(content), 0644); err != nil {
-				return fmt.Errorf("Failed to write NFD label to indicate scale-out readiness: %+v\n", err)
+				return fmt.Errorf("failed to write NFD label to indicate scale-out readiness: %+v", err)
 			}
 		}
 
@@ -321,7 +321,7 @@ func cmdRun(config *cmdConfig) error {
 		case err := <-metrics:
 			// return instead of exiting, so that the interfaces are
 			// restored by the cleanup deferred above
-			return fmt.Errorf("Metrics server returned: %v", err)
+			return fmt.Errorf("metrics server returned: %v", err)
 		}
 
 	}
@@ -383,11 +383,11 @@ func main() {
 	cmd, err := setupCmd()
 
 	if err != nil {
-		klog.Errorf("Could not start: %v\n", err)
+		klog.Errorf("could not start: %v", err)
 		return
 	}
 
 	if err := cmd.Execute(); err != nil {
-		klog.Errorf("Command execution failed: %v\n", err)
+		klog.Errorf("command execution failed: %v", err)
 	}
 }
