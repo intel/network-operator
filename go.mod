@@ -13,7 +13,7 @@ require (
 	github.com/safchain/ethtool v0.7.0
 	github.com/spf13/cobra v1.8.1
 	github.com/vishvananda/netlink v1.3.1
-	golang.org/x/sys v0.48.0
+	golang.org/x/sys v0.49.0
 	k8s.io/api v0.35.0
 	k8s.io/apimachinery v0.35.0
 	k8s.io/client-go v0.35.0
