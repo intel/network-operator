@@ -10,7 +10,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
 	github.com/prometheus/client_golang v1.20.4
-	github.com/safchain/ethtool v0.6.2
+	github.com/safchain/ethtool v0.7.0
 	github.com/spf13/cobra v1.8.1
 	github.com/vishvananda/netlink v1.3.1
 	golang.org/x/sys v0.48.0
