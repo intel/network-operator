@@ -19,13 +19,13 @@ jobs:
 
     steps:
       - name: Git checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-tags: true
 
-      - uses: azure/setup-helm@v4.3.0
+      - uses: azure/setup-helm@v5.0.1
       - name: Log in to the Container registry
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        uses: docker/login-action@d3b9cdfa580156c018ca5e745c1bf653d8ea46b5
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
