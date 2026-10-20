@@ -11,7 +11,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/prometheus/client_golang v1.20.4
 	github.com/safchain/ethtool v0.7.0
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.10.2
 	github.com/vishvananda/netlink v1.3.1
 	golang.org/x/sys v0.49.0
 	k8s.io/api v0.35.0
