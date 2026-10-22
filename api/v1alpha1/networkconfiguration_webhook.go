@@ -15,13 +15,12 @@
 package v1alpha1
 
 import (
+	"context"
 	"regexp"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -60,31 +59,34 @@ func (e missingDeviceClassNameError) Error() string {
 
 // SetupWebhookWithManager will setup the manager to manage the webhooks
 func (r *NetworkClusterPolicy) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+	return ctrl.NewWebhookManagedBy(mgr, r).
+		WithDefaulter(r).
+		WithValidator(r).
 		Complete()
 }
 
 //+kubebuilder:webhook:path=/mutate-intel-com-v1alpha1-networkclusterpolicy,mutating=true,failurePolicy=fail,sideEffects=None,groups=intel.com,resources=networkclusterpolicy,verbs=create;update,versions=v1alpha1,name=mnetworkclusterpolicy.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &NetworkClusterPolicy{}
+var _ admission.Defaulter[*NetworkClusterPolicy] = &NetworkClusterPolicy{}
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *NetworkClusterPolicy) Default() {
-	netpolicylog.Info("default", "name", r.Name)
+// Default implements admission.Defaulter so a webhook will be registered for the type
+func (r *NetworkClusterPolicy) Default(_ context.Context, obj *NetworkClusterPolicy) error {
+	netpolicylog.Info("default", "name", obj.Name)
 
-	switch r.Spec.ConfigurationType {
+	switch obj.Spec.ConfigurationType {
 	case gaudiScaleOut:
-		if len(r.Spec.GaudiScaleOut.Image) == 0 {
-			r.Spec.GaudiScaleOut.Image = "intel/intel-network-linkdiscovery:latest"
+		if len(obj.Spec.GaudiScaleOut.Image) == 0 {
+			obj.Spec.GaudiScaleOut.Image = "intel/intel-network-linkdiscovery:latest"
 		}
 	case hostNicScaleOut:
-		rdmaDeviceClass := r.Spec.HostNicScaleOut.Dranet.RDMADeviceClass
+		rdmaDeviceClass := obj.Spec.HostNicScaleOut.Dranet.RDMADeviceClass
 		if rdmaDeviceClass != nil && rdmaDeviceClass.Name == "" {
-			r.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name = DefaultRDMADeviceClass
+			obj.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name = DefaultRDMADeviceClass
 		}
 
 	}
+
+	return nil
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
@@ -92,7 +94,7 @@ func (r *NetworkClusterPolicy) Default() {
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
 //+kubebuilder:webhook:path=/validate-intel-com-v1alpha1-networkclusterpolicy,mutating=false,failurePolicy=fail,sideEffects=None,groups=intel.com,resources=networkclusterpolicy,verbs=create;update,versions=v1alpha1,name=vnetworkclusterpolicy.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &NetworkClusterPolicy{}
+var _ admission.Validator[*NetworkClusterPolicy] = &NetworkClusterPolicy{}
 
 var labelHostRegex = regexp.MustCompile(`^([A-Za-z0-9][A-Za-z0-9_\.]*)?[A-Za-z0-9]$`)
 var labelPathRegex = regexp.MustCompile(`^([A-Za-z0-9][A-Za-z0-9-\._\/]*)?[A-Za-z0-9]$`)
@@ -154,23 +156,23 @@ func validateSpec(s NetworkClusterPolicySpec) (admission.Warnings, error) {
 	}
 }
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *NetworkClusterPolicy) ValidateCreate() (admission.Warnings, error) {
-	netpolicylog.Info("validate create", "name", r.Name)
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type
+func (r *NetworkClusterPolicy) ValidateCreate(_ context.Context, obj *NetworkClusterPolicy) (admission.Warnings, error) {
+	netpolicylog.Info("validate create", "name", obj.Name)
 
-	return validateSpec(r.Spec)
+	return validateSpec(obj.Spec)
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *NetworkClusterPolicy) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	netpolicylog.Info("validate update", "name", r.Name)
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type
+func (r *NetworkClusterPolicy) ValidateUpdate(_ context.Context, oldObj, newObj *NetworkClusterPolicy) (admission.Warnings, error) {
+	netpolicylog.Info("validate update", "name", newObj.Name)
 
-	return validateSpec(r.Spec)
+	return validateSpec(newObj.Spec)
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *NetworkClusterPolicy) ValidateDelete() (admission.Warnings, error) {
-	netpolicylog.Info("validate delete", "name", r.Name)
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type
+func (r *NetworkClusterPolicy) ValidateDelete(_ context.Context, obj *NetworkClusterPolicy) (admission.Warnings, error) {
+	netpolicylog.Info("validate delete", "name", obj.Name)
 
 	return nil, nil
 }

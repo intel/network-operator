@@ -15,6 +15,8 @@
 package v1alpha1
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +35,7 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 			nc.Spec.ConfigurationType = gaudiScaleOut
 			nc.Spec.GaudiScaleOut.Layer = "L2"
 
-			nc.Default()
+			_ = nc.Default(context.Background(), &nc)
 
 			Expect(nc.Spec.GaudiScaleOut.Image).To(BeEquivalentTo("intel/intel-network-linkdiscovery:latest"))
 		})
@@ -43,7 +45,7 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 			nc.Spec.HostNicScaleOut.InstallDRANet = true
 			nc.Spec.HostNicScaleOut.Dranet.RDMADeviceClass = &RDMADeviceClassSpec{}
 
-			nc.Default()
+			_ = nc.Default(context.Background(), &nc)
 
 			Expect(nc.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name).To(BeEquivalentTo(DefaultRDMADeviceClass))
 		})
@@ -54,7 +56,7 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 				Name: "my-device-class",
 			}
 
-			nc.Default()
+			_ = nc.Default(context.Background(), &nc)
 
 			Expect(nc.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name).To(BeEquivalentTo("my-device-class"))
 		})
@@ -62,7 +64,7 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 		It("Should not add an RDMA device class if none is requested", func() {
 			nc.Spec.ConfigurationType = hostNicScaleOut
 
-			nc.Default()
+			_ = nc.Default(context.Background(), &nc)
 
 			Expect(nc.Spec.HostNicScaleOut.Dranet.RDMADeviceClass).To(BeNil())
 		})
@@ -71,7 +73,7 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 			nc.Spec.ConfigurationType = gaudiScaleOut
 			nc.Spec.HostNicScaleOut.Dranet.RDMADeviceClass = &RDMADeviceClassSpec{}
 
-			nc.Default()
+			_ = nc.Default(context.Background(), &nc)
 
 			Expect(nc.Spec.HostNicScaleOut.Dranet.RDMADeviceClass.Name).To(BeEmpty())
 		})
@@ -81,7 +83,8 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 		It("Should deny if there's no nodeSelector", func() {
 			nc.Spec.ConfigurationType = gaudiScaleOut
 
-			Expect(nc.ValidateCreate()).Error().NotTo(BeNil())
+			_, err := nc.ValidateCreate(context.Background(), &nc)
+			Expect(err).NotTo(BeNil())
 		})
 
 		It("Should deny if the configuration type is invalid InputVal", func() {
@@ -91,7 +94,8 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 
 			nc.Spec.ConfigurationType = "foo bar"
 
-			Expect(nc.ValidateCreate()).Error().To(BeEquivalentTo(unknownConfigurationError{}))
+			_, err := nc.ValidateCreate(context.Background(), &nc)
+			Expect(err).To(BeEquivalentTo(unknownConfigurationError{}))
 		})
 
 		It("Should accept good nodeSelectors", func() {
@@ -113,7 +117,8 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 			for _, v := range goodValues {
 				nc.Spec.NodeSelector = v
 
-				Expect(nc.ValidateCreate()).Error().To(BeNil(), "selector: %+v", v)
+				_, err := nc.ValidateCreate(context.Background(), &nc)
+				Expect(err).To(BeNil(), "selector: %+v", v)
 			}
 		})
 
@@ -144,7 +149,8 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 			for _, v := range badValues {
 				nc.Spec.NodeSelector = v
 
-				Expect(nc.ValidateCreate()).Error().To(Not(BeNil()), "selector: %+v", v)
+				_, err := nc.ValidateCreate(context.Background(), &nc)
+				Expect(err).To(Not(BeNil()), "selector: %+v", v)
 			}
 		})
 
@@ -165,13 +171,15 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 			}
 			nc2 := nc.DeepCopy()
 
-			Expect(nc2.ValidateUpdate(&nc)).Error().To(BeNil())
+			_, err := nc2.ValidateUpdate(context.Background(), &nc, nc2)
+			Expect(err).To(BeNil())
 
 			nc2.Spec.NodeSelector = map[string]string{
 				"foobar.com?foo": "bar", // bad
 			}
 
-			Expect(nc2.ValidateUpdate(&nc)).Error().NotTo(BeNil())
+			_, err = nc2.ValidateUpdate(context.Background(), &nc, nc2)
+			Expect(err).NotTo(BeNil())
 		})
 
 		It("Should always accept delete", func() {
@@ -187,7 +195,8 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 				},
 			}
 
-			Expect(nc.ValidateDelete()).Error().To(BeNil())
+			_, err := nc.ValidateDelete(context.Background(), &nc)
+			Expect(err).To(BeNil())
 		})
 
 		It("Should accept a hostnic configuration without a nodeSelector", func() {
@@ -200,7 +209,8 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 				},
 			}
 
-			Expect(nc.ValidateCreate()).Error().To(BeNil())
+			_, err := nc.ValidateCreate(context.Background(), &nc)
+			Expect(err).To(BeNil())
 		})
 
 		It("Should accept a hostnic configuration with a named RDMA device class", func() {
@@ -218,8 +228,10 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 				},
 			}
 
-			Expect(nc.ValidateCreate()).Error().To(BeNil())
-			Expect(nc.ValidateUpdate(nc.DeepCopy())).Error().To(BeNil())
+			_, err := nc.ValidateCreate(context.Background(), &nc)
+			Expect(err).To(BeNil())
+			_, err = nc.ValidateUpdate(context.Background(), &nc, nc.DeepCopy())
+			Expect(err).To(BeNil())
 		})
 
 		It("Should deny a hostnic configuration with an unnamed RDMA device class InputVal", func() {
@@ -235,13 +247,15 @@ var _ = Describe("NetworkClusterPolicy Webhook", func() {
 				},
 			}
 
-			Expect(nc.ValidateCreate()).Error().To(BeEquivalentTo(missingDeviceClassNameError{}))
+			_, err := nc.ValidateCreate(context.Background(), &nc)
+			Expect(err).To(BeEquivalentTo(missingDeviceClassNameError{}))
 			Expect(missingDeviceClassNameError{}.Error()).NotTo(BeEmpty())
 
 			// Defaulting gives the device class a name, making the spec valid.
-			nc.Default()
+			_ = nc.Default(context.Background(), &nc)
 
-			Expect(nc.ValidateCreate()).Error().To(BeNil())
+			_, err = nc.ValidateCreate(context.Background(), &nc)
+			Expect(err).To(BeNil())
 		})
 	})
 })
