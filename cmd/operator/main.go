@@ -137,7 +137,7 @@ func tlsOptions(enableHTTP2 bool) []func(*tls.Config) {
 // metricsOptions returns the configuration of the metrics server. The metrics
 // endpoint is enabled in 'config/default/kustomization.yaml'.
 // More info:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/server
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.25.2/pkg/metrics/server
 // - https://book.kubebuilder.io/reference/metrics.html
 func metricsOptions(addr string, secure bool, tlsOpts []func(*tls.Config)) metricsserver.Options {
 	metricsServerOptions := metricsserver.Options{
@@ -148,7 +148,7 @@ func metricsOptions(addr string, secure bool, tlsOpts []func(*tls.Config)) metri
 
 	if secure {
 		// More info:
-		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/filters#WithAuthenticationAndAuthorization
+		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.25.2/pkg/metrics/filters#WithAuthenticationAndAuthorization
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
