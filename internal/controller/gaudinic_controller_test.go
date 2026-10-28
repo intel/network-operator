@@ -334,7 +334,7 @@ var _ = Describe("GaudiNIC Controller", func() {
 				},
 			}, cp)
 
-			Expect(r.updateStatus(cp, daemonSetWith(1, 1), ctx, logr.Discard())).To(Equal(ctrl.Result{Requeue: true}))
+			Expect(r.updateStatus(cp, daemonSetWith(1, 1), ctx, logr.Discard())).To(Equal(ctrl.Result{RequeueAfter: requeueDuration}))
 		})
 
 		It("Should report any other status update failure", func() {

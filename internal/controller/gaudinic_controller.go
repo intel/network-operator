@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -61,6 +62,8 @@ const (
 	emptyDirSize = "32Mi"
 
 	scaleOutMonitoringPort = 50152
+
+	requeueDuration = time.Second * 5
 )
 
 func addHostVolume(ds *apps.DaemonSet, volumeType v1.HostPathType, volumeName, hostPath, containerPath string) {
@@ -426,7 +429,7 @@ func (r *GaudiNICReconciler) updateStatus(nc *networkv1alpha1.NetworkClusterPoli
 
 	if updated {
 		if err := r.Status().Update(ctx, nc); apierrors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: requeueDuration}, nil
 		} else if err != nil {
 			log.Error(err, "unable to update network conf status")
 			return ctrl.Result{}, err
