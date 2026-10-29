@@ -18,10 +18,10 @@ jobs:
     name: Run lint
     runs-on: ${{ inputs.runner }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           clean: true
-      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v5
         with:
           go-version-file: go.mod
           check-latest: true
@@ -36,10 +36,10 @@ jobs:
     name: Build all
     runs-on: ${{ inputs.runner }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           clean: true
-      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v5
         with:
           go-version-file: go.mod
           check-latest: true
@@ -53,7 +53,7 @@ jobs:
       - run: make discover-image
       - name: Run Trivy for operator image
         if: always()
-        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # 0.34.2
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
         with:
           scan-type: image
           scan-ref: intel/intel-network-operator:latest
@@ -62,7 +62,7 @@ jobs:
           output: operator-image-vulnerabilities.json
       - name: Run Trivy for discover image
         if: always()
-        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # 0.34.2
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
         with:
           scan-type: image
           scan-ref: intel/intel-network-linkdiscovery:latest
@@ -70,7 +70,7 @@ jobs:
           trivy-config: trivy.yaml
           output: discover-image-vulnerabilities.json
       - name: Store image reports as artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: trivy-image-vulnerabilities-json
@@ -82,10 +82,10 @@ jobs:
     name: Run tests
     runs-on: ${{ inputs.runner }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           clean: true
-      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v5
         with:
           go-version-file: go.mod
           check-latest: true
@@ -101,11 +101,11 @@ jobs:
     name: Run trivy dockerfiles
     runs-on: ${{ inputs.runner }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           clean: true
       - name: Run Trivy for dockerfiles
-        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # 0.34.2
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
         with:
           scan-type: config
           scan-ref: build/
@@ -115,7 +115,7 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
 
       - name: Run Trivy for dockerfiles (json)
-        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # 0.34.2
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
         if: always()
         with:
           scan-type: config
@@ -128,7 +128,7 @@ jobs:
       - run: |
           cp .trivyignore.yaml trivyignore.yaml
       - name: Store dockerfiles analysis report as artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: trivy-dockerfiles-json
@@ -141,11 +141,11 @@ jobs:
     name: Run trivy vulnerabilities
     runs-on: ${{ inputs.runner }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           clean: true
       - name: Run Trivy for vulnerabilities
-        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # 0.34.2
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
         with:
           scan-type: fs
           scan-ref: go.mod
@@ -155,7 +155,7 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
 
       - name: Run Trivy for vulnerabilities (json)
-        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # 0.34.2
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
         if: always()
         with:
           scan-type: fs
@@ -169,7 +169,7 @@ jobs:
       - run: |
           cp .trivyignore.yaml trivyignore.yaml
       - name: Store vulnerability report as artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: trivy-vulnerabilities-json
@@ -182,10 +182,10 @@ jobs:
     name: Run trivy deployments
     runs-on: ${{ inputs.runner }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           clean: true
-      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v5
         with:
           go-version-file: go.mod
           check-latest: true
@@ -194,7 +194,7 @@ jobs:
         run: |
           DEPL_YAML_DIR=trivy-depl make trivy-deployments
       - name: Run Trivy for deployments
-        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # 0.34.2
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
         with:
           scan-type: config
           scan-ref: trivy-depl
@@ -203,7 +203,7 @@ jobs:
           exit-code: 1
           severity: CRITICAL,HIGH,MEDIUM
       - name: Run Trivy for deployments (json)
-        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # 0.34.2
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
         if: always()
         with:
           scan-type: config
@@ -216,7 +216,7 @@ jobs:
       - run: |
           cp .trivyignore.yaml trivyignore.yaml
       - name: Store vulnerability report as artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: trivy-deployments-json
