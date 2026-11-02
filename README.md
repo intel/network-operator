@@ -51,7 +51,7 @@ The operator depends on following Kubernetes components:
 ## Getting Started
 
 ### Prerequisites
-- go version v1.23+
+- go version v1.27+
 - docker version 17.03+.
 - kubectl version v1.31+.
 - Access to a Kubernetes v1.31+ cluster.

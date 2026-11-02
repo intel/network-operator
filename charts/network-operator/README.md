@@ -30,13 +30,13 @@ See other values in the [values.yaml](values.yaml) file.
 
 Install only operator without any custom resources:
 ```
-helm install --namespace "intel-network-operator" --create-namespace --version 1.1.1 \
+helm install --namespace "intel-network-operator" --create-namespace --version 1.2.1 \
   network-operator oci://ghcr.io/intel/network-operator/intel-network-operator
 ```
 
 Install operator and a custom resource for Intel Gaudi:
 ```
-helm install --namespace "intel-network-operator" --create-namespace --version 1.1.1 \
+helm install --namespace "intel-network-operator" --create-namespace --version 1.2.1 \
   network-operator oci://ghcr.io/intel/network-operator/intel-network-operator \
   --set config.gaudi.enabled=true --set config.gaudi.mode=L3 --set config.gaudi.mtu=9000
 ```
@@ -45,7 +45,7 @@ helm install --namespace "intel-network-operator" --create-namespace --version 1
 
 Install operator with Gaudi custom resources to hosts that have an LLDPAD service:
 ```
-helm install --namespace "intel-network-operator" --create-namespace --version 1.1.1 \
+helm install --namespace "intel-network-operator" --create-namespace --version 1.2.1 \
   network-operator oci://ghcr.io/intel/network-operator/intel-network-operator \
   --set config.gaudi.enabled=true --set config.gaudi.mode=L3 --set config.gaudi.mtu=9000 \
   --set config.gaudi.pfc.config="11110000"
@@ -53,7 +53,7 @@ helm install --namespace "intel-network-operator" --create-namespace --version 1
 
 Install operator with Gaudi custom resources to hosts that do not have an LLDPAD service. LLDPAD runs within the Pod:
 ```
-helm install --namespace "intel-network-operator" --create-namespace --version 1.1.1 \
+helm install --namespace "intel-network-operator" --create-namespace --version 1.2.1 \
   network-operator oci://ghcr.io/intel/network-operator/intel-network-operator \
   --set config.gaudi.enabled=true --set config.gaudi.mode=L3 --set config.gaudi.mtu=9000 \
   --set config.gaudi.pfc.config="11110000" --set config.gaudi.pfc.lldpad=true
@@ -63,7 +63,7 @@ helm install --namespace "intel-network-operator" --create-namespace --version 1
 
 Install operator with Gaudi custom resources and provide scale-out networking metrics for Prometheus
 ```
-helm install --namespace "intel-network-operator" --create-namespace --version 1.1.1 \
+helm install --namespace "intel-network-operator" --create-namespace --version 1.2.1 \
   network-operator oci://ghcr.io/intel/network-operator/intel-network-operator \
   --set config.gaudi.enabled=true --set config.gaudi.mode=L3 --set config.gaudi.mtu=9000 \
   --set config.gaudi.networkMetrics=true --set prometheus.labels.release=prometheus
@@ -75,14 +75,14 @@ helm install --namespace "intel-network-operator" --create-namespace --version 1
 
 Install operator with host NIC support:
 ```
-helm install --namespace "intel-network-operator" --create-namespace --version 1.1.1 \
+helm install --namespace "intel-network-operator" --create-namespace --version 1.2.1 \
   network-operator oci://ghcr.io/intel/network-operator/intel-network-operator \
   --set config.hostnic.enabled=true --set config.hostnic.dranet.install=true
 ```
 
 Install operator with host NIC support and specify DRA DeviceClass name:
 ```
-helm install --namespace "intel-network-operator" --create-namespace --version 1.1.1 \
+helm install --namespace "intel-network-operator" --create-namespace --version 1.2.1 \
   network-operator oci://ghcr.io/intel/network-operator/intel-network-operator \
   --set config.hostnic.enabled=true --set config.hostnic.dranet.install=true \
   --set config.hostnic.dranet.rdmaDeviceClass.name=network-dranet-deviceclass
