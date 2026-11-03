@@ -34,7 +34,7 @@ metadata: "this should be an object"
 `
 	dranetName             = "dranet"
 	namespaceName          = "kube-system"
-	imageName              = "registry.k8s.io/networking/dranet:stable"
+	imageName              = "registry.k8s.io/networking/dranet:v1.5.0"
 	resourceName           = "dra.net"
 	rolebindingName        = "linkdiscovery-openshift-privileged"
 	rolebindingRolerefName = "system:openshift:scc:privileged"
