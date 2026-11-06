@@ -52,6 +52,8 @@ const (
 //+kubebuilder:rbac:groups=resource.k8s.io,resources=resourceclaims/status,verbs=patch;update
 //+kubebuilder:rbac:groups=resource.k8s.io,resources=resourceslices,verbs=list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=watch;update
+//+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
+//+kubebuilder:rbac:groups=resource.k8s.io,resources=resourceclaims/driver,resourceNames=dra.net,verbs="associated-node:patch";"associated-node:update"
 
 func (r *HostNICReconciler) updateClusterRole(ctx context.Context, cp *networkv1alpha1.NetworkClusterPolicy) error {
 	cr := deployments.DranetClusterRole()
