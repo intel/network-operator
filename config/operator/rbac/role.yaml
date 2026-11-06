@@ -8,10 +8,12 @@ rules:
   - ""
   resources:
   - events
-  - pods
   verbs:
+  - create
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - ""
@@ -19,6 +21,14 @@ rules:
   - nodes
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -106,6 +116,15 @@ rules:
   - resourceclaims
   verbs:
   - get
+- apiGroups:
+  - resource.k8s.io
+  resourceNames:
+  - dra.net
+  resources:
+  - resourceclaims/driver
+  verbs:
+  - associated-node:patch
+  - associated-node:update
 - apiGroups:
   - resource.k8s.io
   resources:
