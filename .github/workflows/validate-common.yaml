@@ -53,7 +53,7 @@ jobs:
       - run: make discover-image
       - name: Run Trivy for operator image
         if: always()
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # 0.34.2
         with:
           scan-type: image
           scan-ref: intel/intel-network-operator:latest
@@ -62,7 +62,7 @@ jobs:
           output: operator-image-vulnerabilities.json
       - name: Run Trivy for discover image
         if: always()
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # 0.34.2
         with:
           scan-type: image
           scan-ref: intel/intel-network-linkdiscovery:latest
@@ -105,7 +105,7 @@ jobs:
         with:
           clean: true
       - name: Run Trivy for dockerfiles
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # 0.34.2
         with:
           scan-type: config
           scan-ref: build/
@@ -115,7 +115,7 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
 
       - name: Run Trivy for dockerfiles (json)
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # 0.34.2
         if: always()
         with:
           scan-type: config
@@ -145,7 +145,7 @@ jobs:
         with:
           clean: true
       - name: Run Trivy for vulnerabilities
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # 0.34.2
         with:
           scan-type: fs
           scan-ref: go.mod
@@ -155,7 +155,7 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
 
       - name: Run Trivy for vulnerabilities (json)
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # 0.34.2
         if: always()
         with:
           scan-type: fs
@@ -194,7 +194,7 @@ jobs:
         run: |
           DEPL_YAML_DIR=trivy-depl make trivy-deployments
       - name: Run Trivy for deployments
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # 0.34.2
         with:
           scan-type: config
           scan-ref: trivy-depl
@@ -203,7 +203,7 @@ jobs:
           exit-code: 1
           severity: CRITICAL,HIGH,MEDIUM
       - name: Run Trivy for deployments (json)
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # 0.34.2
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # 0.34.2
         if: always()
         with:
           scan-type: config
