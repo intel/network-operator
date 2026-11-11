@@ -31,7 +31,7 @@ More info on the switch topology and configurations is available [here](https://
 
 Network operator uses [DRANet](https://github.com/kubernetes-sigs/dranet) to configure
 host based network interface cards. Currently network cards supporting RDMA are
-requested with the [DRANet DeviceClass](config/deployments/dranet/deviceclass.yaml)
+requested with the [DRANet DeviceClass](config/deployments/dranet/rdmadeviceclass.yaml)
 with the name of the DeviceClass being configurable in the
 [HostNicScaleOutSpec](api/v1alpha1/networkconfiguration_types.go).
 
@@ -203,7 +203,7 @@ Properties under `gaudiScaleOut`
 
     Bitmask of Priority Flow Control priorities to enable. Requires 'lldpad' on the host
     or enabled in a container with the above `enableLLDPAD` boolean. Currently the only two
-    accepted values are `00000000` and `11110000`.
+    accepted values are `"00000000"` and `"11110000"`.
 
 * `networkMetrics` boolean
 
