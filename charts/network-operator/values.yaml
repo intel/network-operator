@@ -3,7 +3,7 @@ logLevel: 2
 operator:
   image:
     repository: intel/intel-network-operator
-    tag: 1.2.1
+    tag: 1.2.1@sha256:ef9a85430f134ac8e4ec5821885ace21a0a0a97ff956ce44afed941089dbe25f
     imagePullPolicy: IfNotPresent
   resources:
     limits:
@@ -30,7 +30,7 @@ config:
     networkMetrics: false
     image:
       repository: intel/intel-network-linkdiscovery
-      tag: 1.2.1
+      tag: 1.2.1@sha256:64e984e72373124317ae00c9a3bbf8fdf7ac96968d6d1c35afb94cc436b2928f
       imagePullPolicy: IfNotPresent
     nodeSelector:
       intel.feature.node.kubernetes.io/gaudi-ready: "true"
