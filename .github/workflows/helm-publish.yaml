@@ -23,7 +23,7 @@ jobs:
         with:
           fetch-tags: true
 
-      - uses: azure/setup-helm@v5.0.1
+      - uses: azure/setup-helm@v5.1.0
       - name: Log in to the Container registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550
         with:
